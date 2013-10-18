@@ -3,8 +3,11 @@
    [thi.ng.luxor.presets :as presets]
    [thi.ng.common.math.core :as m]
    [thi.ng.geom.core :as g]
+   [thi.ng.geom.rect :as r]
    [thi.ng.geom.plane :as pl]
-   [thi.ng.geom.mesh :as mesh])
+   [thi.ng.geom.mesh :as mesh]
+   [thi.ng.geom.meshio :as mio]
+   [clojure.java.io :as io])
   (:import
    [java.io File Writer OutputStreamWriter StringWriter]
    [java.util Date]))
@@ -16,7 +19,7 @@
 
 (def ^:dynamic *indent* 2)
 
-(def ^:const mesh-types {:inline :trimesh :ply :ply-mesh :stl :stl-mesh})
+(def ^:const mesh-types {:inline :trimesh :ply :plymesh :stl :stlmesh})
 
 (def ^:dynamic *degrees* true)
 
@@ -142,10 +145,10 @@
 
 (defmethod luxvalue :area-light
   [_ id opts]
-  (let [[stype mesh] (:__shape opts)]
+  (let [[stype sopts] (:__shape opts)]
     (str
      (luxentity "AreaLightSource" "area" opts)
-     (luxvalue stype (str id "-mesh") mesh))))
+     (luxvalue stype (str id "-mesh") sopts))))
 
 (defmethod luxvalue :light
   [_ id opts]
@@ -177,24 +180,44 @@
    "\n"))
 
 (defmethod luxvalue :trimesh
-  [_ id mesh]
-  (let [verts (vec (keys (:vertices mesh)))
+  [_ id {:keys [__mesh]}]
+  (let [verts (vec (keys (:vertices __mesh)))
         vidx (zipmap verts (range))
-        indices (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)]) (:faces mesh))]
+        indices (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)]) (:faces __mesh))]
     (luxentity
      "Shape" "trianglemesh"
      {:indices [:int-vec (vec indices)]
       :P [:point-vec verts]
       :name [:string id]})))
 
+(defmethod luxvalue :plymesh
+  [_ id {:keys [__mesh __basename path filename] :as opts}]
+  (when __mesh
+    (let [path (or (second filename) (str __basename ".ply"))]
+      (prn "exporting ply mesh: " id path)
+      (with-open [out (io/output-stream path)]
+        (mio/write-ply out __mesh))))
+  (luxentity "Shape" "plymesh" opts))
+
+(defmethod luxvalue :stlmesh
+  [_ id {:keys [__mesh __basename path filename] :as opts}]
+  (when __mesh
+    (let [path (or (second filename) (str __basename ".stl"))]
+      (prn "exporting stl mesh: " id path)
+      (with-open [out (io/output-stream path)]
+        (mio/write-stl out __mesh))))
+  (luxentity "Shape" "stlmesh" opts))
+
 (defmethod luxvalue :shape
-  [_ id opts]
+  [_ id {:keys [__type __transform __material] :as opts}]
   (luxattrib
    id
    (str
-    (when-let [tx (:__transform opts)] (luxtransform tx))
-    (when-let [mat (:__material opts)] (material-ref mat))
-    (luxentity "Shape" (:__type opts) opts))))
+    (when __transform (luxtransform __transform))
+    (when __material (material-ref __material))
+    (if ((set (vals mesh-types)) __type)
+      (luxvalue __type id opts)
+      (luxentity "Shape" __type opts)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; serialization
@@ -359,8 +382,6 @@
   [scene id]
   {:pre [(#{:none :single :emission :multi} id)]}
   (append scene :volume-integrator (name id) {} true))
-
-;; "string config" ["opencl.gpu.use = 1" "opencl.cpu.use = 1"]
 
 (defn renderer-slg
   [scene & {:keys [cpu? gpu?] :or {cpu? true gpu? true}}]
@@ -575,7 +596,7 @@
       (when tx (transform-common scene tx))
       (light-common scene opts)
       {:__type :area-light
-       :__shape [(mesh-types mesh-type) mesh]
+       :__shape [(mesh-types mesh-type) {:__mesh mesh :__basename (str "light-" id)}]
        :nsamples [:int samples]}))))
 
 (defn shape-disk
@@ -593,6 +614,31 @@
      :innerradius [:float inner-radius]
      :phimax [:float phi]})))
 
+(defn ply-mesh
+  [scene id & {:keys [mesh path tx material smooth]}]
+  (append
+   scene :geometry id
+   (merge
+    (when tx (transform-common scene tx))
+    {:__type :plymesh
+     :__material material
+     :__mesh mesh
+     :name [:string id]
+     :filename [:string (or path (str id ".ply"))]
+     :smooth [:bool smooth]})))
+
+(defn stl-mesh
+  [scene id & {:keys [mesh path tx material]}]
+  (append
+   scene :geometry id
+   (merge
+    (when tx (transform-common scene tx))
+    {:__type :stlmesh
+     :__material material
+     :__mesh mesh
+     :name [:string id]
+     :filename [:string (or path (str id ".stl"))]})))
+
 (defn lux-scene
   []
   (-> {}
@@ -606,16 +652,19 @@
       (material-null "__hidden__")))
 
 (comment
-  (-> (lux-scene)
-      (camera :eye [10 -2 10] :target [0 0 0] :up [0 0 1])
-      (film :width 640 :height 360 :display-interval 5 :halt-spp 5)
-      (area-light "left" :p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20} :hidden? true)
-      (area-light "right" :p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20} :hidden? true)
-      (shape-disk "floor" :radius 20 :material "white")
-      (shape-disk "d1" :radius 3 :inner-radius 2 :material "red" :tx {:rx -30})
-      (shape-disk "d2" :radius 3 :inner-radius 2 :material "orange" :tx {:rx 30})
-      (material-matte "white" :diffuse [0.8 0.8 0.8])
-      (material-matte "red" :diffuse [1.0 0 0])
-      (material-matte "orange" :diffuse [1.0 0.3 0])
-      (serialize-scene "foo"))
+  (def lxs (-> (lux-scene)
+               (camera :eye [10 -2 10] :target [0 0 0] :up [0 0 1])
+               (film :width 640 :height 360 :display-interval 5 :halt-spp 50)
+               (area-light "left" :p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20})
+               (area-light "top" :p [0 0 7] :size 6 :gain 0.5 :tx {:translate [0 4 0] :rx -45})
+               (area-light "right" :p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20})
+               (shape-disk "floor" :radius 20 :material "white")
+               ;;(shape-disk "d1" :radius 3 :inner-radius 2 :material "red" :tx {:rx -30})
+               ;;(shape-disk "d2" :radius 3 :inner-radius 2 :material "orange" :tx {:rx 30})
+               (stl-mesh "map" :material "orange" :tx {:scale [5 3 1] :translate [0 0 1]} :mesh (g/extrude (r/rect -1 -1 2 2) {:depth 1 :scale 0.8}))
+               (material-matte "white" :diffuse [0.8 0.8 0.8])
+               (material-matte "red" :diffuse [1.0 0 0])
+               (material-matte "orange" :diffuse [1.0 0.3 0])
+               (serialize-scene "foo" false)
+               ))
   )
