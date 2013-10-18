@@ -9,9 +9,20 @@
    [java.io File Writer OutputStreamWriter StringWriter]
    [java.util Date]))
 
+;; References:
+;; http://www.luxrender.net/wiki/Scene_file_format_dev
+
 (def ^:const version "0.1.0-SNAPSHOT")
 
 (def ^:dynamic *indent* 2)
+
+(def ^:const mesh-types {:inline :trimesh :ply :ply-mesh :stl :stl-mesh})
+
+(def ^:dynamic *degrees* true)
+
+(defn convert-angle
+  [theta]
+  (if *degrees* (m/radians theta) theta))
 
 (defn scaled-absorption-at-depth
   [x scale d]
@@ -46,12 +57,17 @@
 
 (defn- luxattrib
   [id body]
-  (format "AttributeBegin # %s\n%sAttributeEnd\n\n" id body))
+  (let [sep (str "# -------- " id " --------\n")]
+    (format "AttributeBegin %s%sAttributeEnd   %s\n" sep body sep)))
 
 (defn- luxtransform
   [tx]
   (format "Transform [%s]\n"
           (apply str (interpose " " (map #(format "%1.8f" %) tx)))))
+
+(defn- material-ref
+  [id]
+  (format "NamedMaterial \"%s\"\n" id))
 
 (defmulti luxvalue (fn [type & _] type))
 
@@ -60,12 +76,24 @@
 
 (defmethod luxvalue :float-vec
   [_ id xs]
-  (format "\"float\" \"%s\" [%s]\n"
+  (format "\"float %s\" [%s]\n"
           (name id)
-          (apply str (interpose " " (map #(format "%1.8f" %) xs)))))
+          (apply str (interpose " " (map #(format "%1.8f" (float %)) xs)))))
 
 (defmethod luxvalue :int
   [_ id x] (format "\"integer %s\" [%d]\n" (name id) (int x)))
+
+(defmethod luxvalue :int-vec
+  [_ id xs]
+  (format "\"integer %s\" [%s]\n"
+          (name id)
+          (apply str (interpose " " (map #(format "%d" (int %)) xs)))))
+
+(defmethod luxvalue :point-vec
+  [_ id xs]
+  (format "\"point %s\" [%s]\n"
+          (name id)
+          (apply str (interpose " " (map #(format "%1.8f" (float %)) (mapcat identity xs))))))
 
 (defmethod luxvalue :bool
   [_ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) x))
@@ -75,7 +103,7 @@
 
 (defmethod luxvalue :string-vec
   [_ id xs]
-  (format "\"string\" \"%s\" [%s]\n"
+  (format "\"string %s\" [%s]\n"
           (name id)
           (apply str (interpose " " (map #(format "\"%s\"" %) xs)))))
 
@@ -112,15 +140,22 @@
   [_ id opts]
   (luxentity "Film" id opts))
 
+(defmethod luxvalue :area-light
+  [_ id opts]
+  (let [[stype mesh] (:__shape opts)]
+    (str
+     (luxentity "AreaLightSource" "area" opts)
+     (luxvalue stype (str id "-mesh") mesh))))
+
 (defmethod luxvalue :light
   [_ id opts]
   (luxattrib
    id
    (str
-    (when (:__transform opts) (luxtransform (:__transform opts)))
-    (when-let [g (:__parent opts)]
-      (format "LightGroup \"%s\"\n" g))
-    (luxentity (:__type opts) id opts))))
+    (when-let [tx (:__transform opts)] (luxtransform tx))
+    (when-let [mat (:__material opts)] (material-ref mat))
+    (when-let [g (:__parent opts)] (format "LightGroup \"%s\"\n" g))
+    (luxvalue (:__type opts) id opts))))
 
 (defmethod luxvalue :camera
   [_ id opts]
@@ -141,25 +176,63 @@
    (luxvalues opts)
    "\n"))
 
+(defmethod luxvalue :trimesh
+  [_ id mesh]
+  (let [verts (vec (keys (:vertices mesh)))
+        vidx (zipmap verts (range))
+        indices (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)]) (:faces mesh))]
+    (luxentity
+     "Shape" "trianglemesh"
+     {:indices [:int-vec (vec indices)]
+      :P [:point-vec verts]
+      :name [:string id]})))
+
+(defmethod luxvalue :shape
+  [_ id opts]
+  (luxattrib
+   id
+   (str
+    (when-let [tx (:__transform opts)] (luxtransform tx))
+    (when-let [mat (:__material opts)] (material-ref mat))
+    (luxentity "Shape" (:__type opts) opts))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serialization
+
 (defn- lx-header
-  [path]
-  (format "# %s\n# generated %s by luxor v%s\n\n"
-          path (.toString (Date.)) version))
+  [path & comments]
+  (prn comments)
+  (format "# %s\n# generated %s by luxor v%s\n%s\n"
+          path (.toString (Date.)) version
+          (if (seq comments)
+            (reduce #(str % "# " %2 "\n") "#\n# Comments:\n" comments)
+            "")))
 
 (defn- path-filename
   [path] (.getName (File. path)))
 
-(defn- include-file
+(defn- include-file*
   [path]
   (format "Include \"%s\"\n\n" path))
 
+(defn- include-partials*
+  [partials]
+  (prn :partials partials)
+  (apply str (map include-file* partials)))
+
+(defn- inject-scene-partial
+  [partial path include?]
+  (when partial
+    (if include? (include-file* path) partial)))
+
 ;; TODO rename into export-scene & split out serialize part
 (defn serialize-lxs
-  [scene base-path]
+  [scene base-path separate-files?]
   (let [base-name (path-filename base-path)
         lxs-path (str base-path ".lxs")
         lxs (str
-             (lx-header lxs-path)
+             (apply lx-header lxs-path (:comments scene))
+             (include-partials* (get-in scene [:includes :headers]))
              (:renderer scene)
              (:accel scene)
              (:sampler scene)
@@ -168,9 +241,10 @@
              (:film scene)
              (:camera scene)
              "WorldBegin\n\n"
-             (when (:volumes scene) (include-file (str base-name ".lxv")))
-             (when (:materials scene) (include-file (str base-name ".lxm")))
-             (when (:geometry scene) (include-file (str base-name ".lxo")))
+             (include-partials* (get-in scene [:includes :partials]))
+             (inject-scene-partial (:volumes scene) (str base-name ".lxv") separate-files?)
+             (inject-scene-partial (:materials scene) (str base-name ".lxm") separate-files?)
+             (inject-scene-partial (:geometry scene) (str base-name ".lxo") separate-files?)
              (:lights scene)
              "\nWorldEnd\n")]
     (spit lxs-path lxs)
@@ -179,31 +253,38 @@
 (defn serialize-lxm
   [{:keys [materials]} base-path]
   (when materials
-    (let [lxm-path (str base-path ".lxm")
-          lxm (str (lx-header lxm-path) materials)]
-      (spit lxm-path lxm)
-      lxm)))
+    (let [path (str base-path ".lxm")
+          body (str (lx-header path) materials)]
+      (spit path body)
+      body)))
 
 (defn serialize-lxv
   [{:keys [volumes]} base-path]
   (when volumes
-    (let [lxm-path (str base-path ".lxv")
-          lxm (str (lx-header lxm-path) volumes)]
-      (spit lxm-path lxm)
-      lxm)))
+    (let [path (str base-path ".lxv")
+          body (str (lx-header path) volumes)]
+      (spit path body)
+      body)))
 
 (defn serialize-lxo
   [{:keys [geometry]} base-path]
   (when geometry
-    ;; TODO
-    ))
+    (let [path (str base-path ".lxo")
+          body (str (lx-header path) geometry)]
+      (spit path body)
+      body)))
 
 (defn serialize-scene
-  [scene base-path]
-  (let [scene* (reduce
-                (fn [s [k type]]
-                  (assoc s k (luxvalues-typed type (k scene))))
-                {} {:renderer :renderer
+  ([scene base-path]
+     (serialize-scene scene base-path true))
+  ([scene base-path separate?]
+     (let [scene* (reduce
+                   (fn [s [k type]]
+                     (if-let [ents (k scene)]
+                       (assoc s k (luxvalues-typed type ents))
+                       s))
+                   (select-keys scene [:comments :includes])
+                   {:renderer :renderer
                     :accel :accelerator
                     :sampler :sampler
                     :integrator :integrator
@@ -212,12 +293,15 @@
                     :camera :camera
                     :lights :light
                     :materials :material
-                    :volumes :volume})
-        lxs (serialize-lxs scene* base-path)
-        lxm (serialize-lxm scene* base-path)
-        lxo (serialize-lxo scene* base-path)
-        lxv (serialize-lxv scene* base-path)]
-    (apply str lxs lxm lxo lxv)))
+                    :volumes :volume
+                    :geometry :shape})
+           lxs (serialize-lxs scene* base-path separate?)]
+       (if separate?
+         (-> lxs
+             (str (serialize-lxm scene* base-path))
+             (str (serialize-lxo scene* base-path))
+             (str (serialize-lxv scene* base-path)))
+         lxs))))
 
 (defn- append
   ([scene group id opts]
@@ -225,6 +309,18 @@
   ([scene group id opts singleton?]
      (-> (if singleton? (dissoc scene group) scene)
          (assoc-in [group id] (or opts {})))))
+
+(defn scene-comments
+  [scene & comments]
+  (update-in scene [:comments] (fnil into []) comments))
+
+(defn include-headers
+  [scene & paths]
+  (update-in scene [:includes :headers] (fnil into []) paths))
+
+(defn include-partials
+  [scene & paths]
+  (update-in scene [:includes :partials] (fnil into []) paths))
 
 (defn material-null
   [scene id]
@@ -366,8 +462,8 @@
      :colorspace_green [:float-vec green]
      :colorspace_blue [:float-vec blue]
      :premultiplyalpha [:bool premultiply?]
-     :write_resume_film [:bool write-flm?]
-     :restart_resume_film [:bool restart-flm?]
+     :write_resume_flm [:bool write-flm?]
+     :restart_resume_flm [:bool restart-flm?]
      :write_exr [:bool write-exr?]
      :write_exr_channels [:string exr-channels]
      :write_exr_applyimaging [:bool exr-imaging?]
@@ -379,7 +475,7 @@
      :write_tga_channels [:string tga-channels]
      :ldr_clamp_method [:string ldr-method]
      :writeinterval [:int write-interval]
-     :filmwriteinterval [:int write-interval]
+     :flmwriteinterval [:int write-interval]
      :displayinterval [:int display-interval]
      :haltspp [:int halt-spp]
      :halttime [:int halt-time]
@@ -428,19 +524,37 @@
                  opts))]
     (append scene :camera type opts true)))
 
-(defn transform-common
-  [scene {:keys [matrix scale rotate translate] :as tx}]
-  {:__transform tx})
+(defn- make-transform-matrix
+  [{:keys [scale rx ry rz axis theta translate] :or {rx 0 ry 0 rz 0} :as tx}]
+  (let [mat (if translate
+              (g/translate g/IDENTITY44 (g/vec3 translate))
+              g/IDENTITY44)
+        mat (if axis
+              (g/rotate-around-axis mat axis theta)
+              (if (some (complement zero?) [rx ry rz])
+                (-> mat
+                    (g/rotate-x (convert-angle rx))
+                    (g/rotate-y (convert-angle ry))
+                    (g/rotate-z (convert-angle rz)))
+                mat))
+        mat (if scale (g/scale mat scale) mat)]
+    (vals (g/transpose mat))))
+
+;; TODO is scene needed as arg?
+(defn- transform-common
+  [scene {:keys [matrix] :as tx}]
+  {:__transform (if matrix matrix (make-transform-matrix tx))})
 
 (defn light-group
   [scene id & {:keys [gain] :or {gain 1.0}}]
   (append scene :light-groups id {:__gain [:float gain]}))
 
 (defn- light-common
-  [scene {:keys [group color gain power efficacy importance tx]
-          :or {group "default" color [1 1 1]
-               gain 1 efficacy 10 power 100 importance 1}}]
+  [scene {:keys [group color gain power efficacy importance tx material hidden?]
+          :or {group "default" color [1.0 1.0 1.0]
+               gain 1.0 efficacy 10.0 power 100.0 importance 1.0 hidden? false}}]
   {:__parent group
+   :__material (or material (when hidden? "__hidden__"))
    :L [:color color]
    :gain [:float (if group
                    (* (get-in scene [:light-groups group :__gain 1] 1.0) gain)
@@ -450,18 +564,34 @@
    :importance [:float importance]})
 
 (defn area-light
-  [scene id & {:keys [samples mesh p n size tx] :or {samples 1} :as opts}]
+  [scene id & {:keys [samples mesh mesh-type p n size tx]
+               :or {samples 1 mesh-type :inline} :as opts}]
   (let [mesh (if mesh
                mesh
-               (g/as-mesh (pl/plane (or p [0 0 10]) (or n [0 0 -1])) size))]
+               (g/as-mesh (pl/plane (or p [0 0 10]) (or n [0 0 -1])) {:size size}))]
     (append
      scene :lights id
      (merge
       (when tx (transform-common scene tx))
       (light-common scene opts)
-      {:__type "AreaLightSource"
-       :__shape mesh
+      {:__type :area-light
+       :__shape [(mesh-types mesh-type) mesh]
        :nsamples [:int samples]}))))
+
+(defn shape-disk
+  [scene id & {:keys [z radius inner-radius phi tx material]
+               :or {z 0 radius 1 inner-radius 0 phi 360}}]
+  (append
+   scene :geometry id
+   (merge
+    (when tx (transform-common scene tx))
+    {:__type :disk
+     :__material material
+     :name [:string id]
+     :height [:float z]
+     :radius [:float radius]
+     :innerradius [:float inner-radius]
+     :phimax [:float phi]})))
 
 (defn lux-scene
   []
@@ -472,4 +602,20 @@
       (volume-integrator :multi)
       (accelerator-qbvh)
       (film)
-      (light-group "default")))
+      (light-group "default")
+      (material-null "__hidden__")))
+
+(comment
+  (-> (lux-scene)
+      (camera :eye [10 -2 10] :target [0 0 0] :up [0 0 1])
+      (film :width 640 :height 360 :display-interval 5 :halt-spp 5)
+      (area-light "left" :p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20} :hidden? true)
+      (area-light "right" :p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20} :hidden? true)
+      (shape-disk "floor" :radius 20 :material "white")
+      (shape-disk "d1" :radius 3 :inner-radius 2 :material "red" :tx {:rx -30})
+      (shape-disk "d2" :radius 3 :inner-radius 2 :material "orange" :tx {:rx 30})
+      (material-matte "white" :diffuse [0.8 0.8 0.8])
+      (material-matte "red" :diffuse [1.0 0 0])
+      (material-matte "orange" :diffuse [1.0 0.3 0])
+      (serialize-scene "foo"))
+  )
