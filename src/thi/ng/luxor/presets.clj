@@ -216,3 +216,5 @@
                  :plastic 1.46
                  :plexiglas 1.488
                  :salt 1.516}})
+
+(def ior-presets (apply merge (vals ior-categories)))

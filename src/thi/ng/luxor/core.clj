@@ -17,17 +17,35 @@
 
 (def ^:const version "0.1.0-SNAPSHOT")
 
-(def ^:dynamic *indent* 2)
+(def ^:const mesh-types            {:inline :trimesh :ply :plymesh :stl :stlmesh})
+(def ^:const volume-types          #{:clear :homogenous :heterogenous})
+(def ^:const volume-integrators    #{:none :single :emission :multi})
+(def ^:const sppm-accelerators     #{:hashgrid :hybridhashgrid :kdtree :parallelhashgrid})
+(def ^:const pixel-samplers        #{:hilbert :liner :tile :vegas})
+(def ^:const photon-samplers       #{:halton :amc})
+(def ^:const light-strategies      #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
+(def ^:const light-path-strategies #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
+(def ^:const rr-strategies         #{:none :efficiency :probability})
 
-(def ^:dynamic *float-format* "%1.8f")
+(def ^:dynamic *indent*         2)
+(def ^:dynamic *degrees*        true)
+(def ^:dynamic *float-format*   "%1.8f")
 
-(def ^:const mesh-types {:inline :trimesh :ply :plymesh :stl :stlmesh})
+(defn kw-or-num? [x] (or (keyword? x) (number? x)))
+(defn kw-or-str? [x] (or (keyword? x) (string? x)))
+(defn color? [x] (and (sequential? x) (= 3 (count x))))
+(defn optional-bool
+  [x default] (cond x true (false? x) false :default default))
 
-(def ^:dynamic *degrees* true)
+(defn optional
+  ([pred x] (if x (pred x) true))
+  ([test pred x] (if (test x) (pred x) true)))
 
-(defn convert-angle
-  [theta]
-  (if *degrees* (m/radians theta) theta))
+(defn convert-angle [theta] (if *degrees* (m/radians theta) theta))
+
+;; TODO
+(defn hsb->rgb
+  [[h s b]] [h s b])
 
 (defn scaled-absorption-at-depth
   [x scale d]
@@ -68,12 +86,12 @@
   (format "%s \"%s\"\n%s\n" type (name id) (luxvalues scene opts)))
 
 (defn- luxattrib
-  [scene id {:keys [__transform __material]} body]
-  (let [sep (str "# -------- " id " --------\n")
+  [scene id type {:keys [__transform __material]} body]
+  (let [sep (format "# -------- %s: %s --------\n" type id)
         inject (str
                 (when __transform (luxtransform __transform))
                 (when __material (material-ref scene __material)))]
-    (format "AttributeBegin %s%s%sAttributeEnd   %s\n" sep inject body sep)))
+    (format "%sAttributeBegin\n%s%sAttributeEnd\n%s\n" sep inject body sep)))
 
 (defn- luxtransform
   [tx]
@@ -161,7 +179,7 @@
 (defmethod luxvalue :light
   [_ scene id opts]
   (luxattrib
-   scene id opts
+   scene id "light" opts
    (str
     (when-let [g (:__parent opts)] (format "LightGroup \"%s\"\n" g))
     (luxvalue (:__type opts) scene id opts))))
@@ -217,7 +235,7 @@
 (defmethod luxvalue :shape
   [_ scene id {:keys [__type] :as opts}]
   (luxattrib
-   scene id opts
+   scene id "shape" opts
    (str
     (if ((set (vals mesh-types)) __type)
       (luxvalue __type scene id opts)
@@ -336,6 +354,9 @@
      (-> (if singleton? (dissoc scene group) scene)
          (assoc-in [group id] (or opts {})))))
 
+(defn- append-singleton
+  [scene group id opts] (append scene group id opts true))
+
 (defn scene-comments
   [scene & comments]
   (update-in scene [:comments] (fnil into []) comments))
@@ -354,76 +375,109 @@
    :__exterior exterior})
 
 (defn material-null
-  [scene id]
-  (append scene :materials (name id) {:type [:string "null"]} true))
+  [scene id & {:as opts}]
+  {:pre [(kw-or-str? id)]}
+  (append
+   scene :materials (name id)
+   (merge
+    (material-common opts)
+    {:type [:string "null"]})))
 
 (defn material-matte
-  [scene id & {:keys [diffuse sigma] :or {diffuse [1.0 1.0 1.0] sigma 0} :as opts}]
+  [scene id & {:keys [diffuse diffuse-hsb sigma]
+               :or {diffuse [1.0 1.0 1.0] sigma 0} :as opts}]
+  {:pre [(kw-or-str? id)
+         (color? diffuse) (optional color? diffuse-hsb)
+         (number? sigma)]}
   (append
    scene :materials (name id)
    (merge
     (material-common opts)
     {:type [:string "matte"]
-     :Kd [:color diffuse]
+     :Kd [:color (if diffuse-hsb (hsb->rgb diffuse-hsb) diffuse)]
      :sigma [:float sigma]})))
 
 (defn material-matte-translucent
-  [scene id & {:keys [reflect transmit sigma conserve?]
+  [scene id & {:keys [reflect reflect-hsb transmit transmit-hsb sigma conserve?]
                :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65] sigma 0 conserve? true}
                :as opts}]
+  {:pre [(kw-or-str? id)
+         (color? reflect) (optional color? reflect-hsb)
+         (color? transmit) (optional color? transmit-hsb)
+         (number? sigma)]}
   (append
    scene :materials (name id)
    (merge
     (material-common opts)
     {:type [:string "mattetranslucent"]
-     :Kr [:color reflect]
-     :Kt [:color transmit]
+     :Kr [:color (if reflect-hsb (hsb->rgb reflect-hsb) reflect)]
+     :Kt [:color (if transmit-hsb (hsb->rgb transmit-hsb) transmit)]
      :sigma [:float sigma]
      :energyconserving [:bool conserve?]})))
 
 (defn volume
-  [scene id & {:keys [type fresnel absorb abs-scale abs-depth]
-               :or {type "clear" fresnel 1.000293 absorb [1.0 1.0 1.0]
-                    abs-scale 1.0 abs-depth 1.0}}]
+  [scene id & {:keys [type ior absorb absorb-hsb abs-scale abs-depth]
+               :or {type :clear absorb [1.0 1.0 1.0]
+                    abs-scale 1.0 abs-depth 1.0 ior :air}}]
+  {:pre [(kw-or-str? id)
+         (volume-types type)
+         (kw-or-num? ior) (optional keyword? presets/ior-presets ior)
+         (color? absorb) (optional color? absorb-hsb)
+         (number? abs-scale) (number? abs-depth)]}
   (append
    scene :volumes (name id)
    {:__type type
-    :fresnel [:float fresnel]
-    :absorption [:log-color [absorb abs-scale abs-depth]]}))
+    :fresnel [:float (if (keyword ior) (presets/ior-presets ior) ior)]
+    :absorption [:log-color [(if absorb-hsb (hsb->rgb absorb-hsb) absorb)
+                             abs-scale abs-depth]]}))
 
 (defn volume-integrator
   [scene id]
-  {:pre [(#{:none :single :emission :multi} id)]}
-  (append scene :volume-integrator (name id) {} true))
+  {:pre [(volume-integrators id)]}
+  (append-singleton scene :volume-integrator (name id) {}))
 
 (defn renderer-slg
-  [scene & {:keys [cpu? gpu?] :or {cpu? true gpu? true}}]
-  (append
+  [scene & {:keys [cpu? gpu? ]}]
+  (append-singleton
    scene :renderer "slg"
-   {:config [:string-vec [(str "opencl.cpu.use = " cpu?)
-                          (str "opencl.gpu.use = " gpu?)]]}
-   true))
+   {:config
+    [:string-vec [(str "opencl.cpu.use = " (optional-bool cpu? true))
+                  (str "opencl.gpu.use = " (optional-bool gpu? true))]]}))
+
+(defn renderer-sampler
+  [scene]
+  (append-singleton scene :renderer "sampler" {}))
 
 (defn renderer-sppm
   [scene]
-  (append scene :renderer "sppm" {} true))
+  (append-singleton scene :renderer "sppm" {}))
 
 (defn sampler-sobol
-  [scene & {:keys [noise-aware] :or {noise-aware true}}]
-  (append scene :sampler "sobol" {:noiseaware [:bool noise-aware]} true))
+  [scene & {:keys [noise-aware]}]
+  (append-singleton
+   scene :sampler "sobol"
+   {:noiseaware [:bool (optional-bool noise-aware true)]}))
+
+(defn- integrator-common
+  [{:keys [shadow-rays light-strategy] :or {shadow-rays 1 light-strategy :auto}}]
+  {:pre [(number? shadow-rays) (light-strategies light-strategy)]}
+  {:shadowraycount [:int shadow-rays]
+   :lightstrategy [:string (name light-strategy)]})
 
 (defn integrator-bidir
-  [scene & {:keys [eye-depth light-depth light-rays light-strategy path-strategy]
-            :or {eye-depth 16 light-depth 16 light-rays 1
-                 light-strategy "auto" path-strategy "auto"}}]
-  (append
+  [scene & {:keys [eye-depth light-depth light-rays path-strategy]
+            :or {eye-depth 16 light-depth 16 light-rays 1 path-strategy :auto}
+            :as opts}]
+  {:pre [(number? eye-depth) (number? light-depth) (number? light-rays)
+         (light-path-strategies path-strategy)]}
+  (append-singleton
    scene :integrator "bidirectional"
-   {:eyedepth [:int eye-depth]
-    :lightdepth [:int light-depth]
-    :lightraycount [:int light-rays]
-    :lightpathstrategy [:string path-strategy]
-    :lightstrategy [:string light-strategy]}
-   true))
+   (merge
+    (integrator-common opts)
+    {:eyedepth [:int eye-depth]
+     :lightdepth [:int light-depth]
+     :lightraycount [:int light-rays]
+     :lightpathstrategy [:string (name path-strategy)]})))
 
 (defn integrator-sppm
   [scene & {:keys [max-eye max-photon
@@ -435,10 +489,15 @@
             :or {max-eye 48 max-photon 16
                  photons 2e6 hit-points 0
                  start-radius 2 alpha 0.7
-                 env? true direct-light? true glossy? false use-prob? true
-                 wave-passes 8 accel "hybridhashgrid"
-                 pixel-sampler "hilbert" photon-sampler "halton"}}]
-  (append
+                 wave-passes 8
+                 accel :hybridhashgrid
+                 pixel-sampler :hilbert
+                 photon-sampler :halton}}]
+  {:pre [(every? number? [max-eye max-photon photons
+                          hit-points start-radius alpha wave-passes])
+         (sppm-accelerators accel) (pixel-samplers pixel-sampler)
+         (photon-samplers photon-sampler)]}
+  (append-singleton
    scene :integrator "sppm"
    {:maxeyedepth [:int max-eye]
     :maxphotondepth [:int max-photon]
@@ -446,19 +505,18 @@
     :hitpointperpass [:int hit-points]
     :startradius [:float start-radius]
     :alpha [:float alpha]
-    :includeenvironment [:bool env?]
-    :directlightsampling [:bool direct-light?]
-    :storeglossy [:bool glossy?]
-    :useproba [:bool use-prob?]
-    :wavelengthstratificationpasses [:int 8]
-    :lookupaccel [:string accel]
-    :pixelsampler [:string pixel-sampler]
-    :photonsampler [:string photon-sampler]}
-   true))
+    :includeenvironment [:bool (optional-bool env? true)]
+    :directlightsampling [:bool (optional-bool direct-light? true)]
+    :storeglossy [:bool (optional-bool glossy? false)]
+    :useproba [:bool (optional-bool use-prob? true)]
+    :wavelengthstratificationpasses [:int wave-passes]
+    :lookupaccel [:string (name accel)]
+    :pixelsampler [:string (name pixel-sampler)]
+    :photonsampler [:string (name photon-sampler)]}))
 
 (defn accelerator-qbvh
   [scene & {:as opts}]
-  (append scene :accel "qbvh" (or opts {}) true))
+  (append-singleton scene :accel "qbvh" (or opts {})))
 
 (defn film
   [scene & {:keys [width height gamma
@@ -483,7 +541,7 @@
                  ldr-method "cut"
                  write-interval 180 display-interval 12
                  halt-spp 0 halt-time 0 halt-threshold 0}}]
-  (append
+  (append-singleton
    scene :film "fleximage"
    (merge
     (get-in scene [:film "fleximage"])
@@ -517,12 +575,11 @@
     (when response
       {:cameraresponse [:string (if (keyword? response)
                                   (response presets/film-response-presets)
-                                  response)]}))
-   true))
+                                  response)]}))))
 
 (defn tonemap-linear
   [scene & {:keys [iso exposure f-stop gamma]
-            :or {iso 100 exposure 0.37 f-stop 4 gamma 1.2}}]
+            :or {iso 100 exposure 1.0 f-stop 4 gamma 2.2}}]
   (update-in
    scene [:film "fleximage"]
    assoc
@@ -556,7 +613,7 @@
                (if auto-focus?
                  (assoc opts :autofocus [:bool true])
                  opts))]
-    (append scene :camera type opts true)))
+    (append-singleton scene :camera type opts)))
 
 (defn- make-transform-matrix
   [{:keys [scale rx ry rz axis theta translate] :or {rx 0 ry 0 rz 0} :as tx}]
@@ -668,7 +725,7 @@
   (def lxs (-> (lux-scene)
                (camera :eye [10 -2 10] :target [0 0 0] :up [0 0 1])
                (film :width 640 :height 360 :display-interval 5 :halt-spp 50)
-               (volume "inside" :type :clear :absorb [0.972 0.8 0.7] :abs-depth 1 :fresnel 2.04)
+               (volume "inside" :type :clear :absorb [0.972 0.8 0.7] :abs-depth 1 :ior 2.04)
                (area-light "left" :p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20})
                (area-light "top" :p [0 0 7] :size 6 :gain 0.5 :tx {:translate [0 4 0] :rx -45})
                (area-light "right" :p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20})
