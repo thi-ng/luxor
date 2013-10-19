@@ -1,8 +1,21 @@
-(ns thi.ng.luxor.color)
+(ns thi.ng.luxor.color
+  (:import
+   [java.awt Color]))
 
-;; TODO
+(defn rgbvec
+  [rgb]
+  (let [i8 (/ 1.0 255)]
+    [(* i8 (bit-and (bit-shift-right rgb 16) 0xff))
+     (* i8 (bit-and (bit-shift-right rgb 8) 0xff))
+     (* i8 (bit-and rgb 0xff))]))
+
 (defn hsb->rgb
-  [[h s b]] [h s b])
+  [[h s b]]
+  (let [rgb (bit-and (Color/HSBtoRGB (float h) (float s) (float b)) 0xffffff)
+        i8 (/ 1.0 255)]
+    [(* i8 (bit-and (bit-shift-right rgb 16) 0xff))
+     (* i8 (bit-and (bit-shift-right rgb 8) 0xff))
+     (* i8 (bit-and rgb 0xff))]))
 
 (defn scaled-absorption-at-depth
   [x scale d]
