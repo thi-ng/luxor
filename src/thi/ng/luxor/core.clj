@@ -19,6 +19,8 @@
 
 (def ^:dynamic *indent* 2)
 
+(def ^:dynamic *float-format* "%1.8f")
+
 (def ^:const mesh-types {:inline :trimesh :ply :plymesh :stl :stlmesh})
 
 (def ^:dynamic *degrees* true)
@@ -35,196 +37,197 @@
   [rgb scale d]
   (mapv #(scaled-absorption-at-depth % scale d) rgb))
 
+(defn- material-ref
+  [scene id]
+  (let [{:keys [__interior __exterior]} (get-in scene [:materials id])]
+    (str
+     (format "NamedMaterial \"%s\"\n" id)
+     (when __interior (format "Interior \"%s\"\n" __interior))
+     (when __exterior (format "Exterior \"%s\"\n" __exterior)))))
+
 (declare luxvalue)
 
 (defn- filter-opts
   [xs] (->> xs (filter #(not (.startsWith (name (key %)) "__"))) (into {})))
 
 (defn- luxvalues
-  [opts]
+  [scene opts]
   (let [indent (apply str (repeat *indent* \space))]
     (->> opts
          (filter-opts)
          (into (sorted-map))
          (reduce-kv
-          (fn [s k [type v]] (str s indent (luxvalue type k v))) ""))))
+          (fn [s k [type v]] (str s indent (luxvalue type scene k v))) ""))))
 
 (defn- luxvalues-typed
-  [type coll]
-  (reduce (fn [s [k v]] (str s (luxvalue type k v))) "" (into (sorted-map) coll)))
+  [scene type coll]
+  (reduce (fn [s [k v]] (str s (luxvalue type scene k v))) "" (into (sorted-map) coll)))
 
 (defn- luxentity
-  [type id opts]
-  (prn type)
-  (format "%s \"%s\"\n%s\n" type (name id) (luxvalues opts)))
+  [scene type id opts]
+  (format "%s \"%s\"\n%s\n" type (name id) (luxvalues scene opts)))
 
 (defn- luxattrib
-  [id body]
-  (let [sep (str "# -------- " id " --------\n")]
-    (format "AttributeBegin %s%sAttributeEnd   %s\n" sep body sep)))
+  [scene id {:keys [__transform __material]} body]
+  (let [sep (str "# -------- " id " --------\n")
+        inject (str
+                (when __transform (luxtransform __transform))
+                (when __material (material-ref scene __material)))]
+    (format "AttributeBegin %s%s%sAttributeEnd   %s\n" sep inject body sep)))
 
 (defn- luxtransform
   [tx]
   (format "Transform [%s]\n"
           (apply str (interpose " " (map #(format "%1.8f" %) tx)))))
 
-(defn- material-ref
-  [id]
-  (format "NamedMaterial \"%s\"\n" id))
-
 (defmulti luxvalue (fn [type & _] type))
 
 (defmethod luxvalue :float
-  [_ id x] (format "\"float %s\" [%1.8f]\n" (name id) (float x)))
+  [_ _ id x] (format "\"float %s\" [%1.8f]\n" (name id) (float x)))
 
 (defmethod luxvalue :float-vec
-  [_ id xs]
+  [_ _ id xs]
   (format "\"float %s\" [%s]\n"
           (name id)
           (apply str (interpose " " (map #(format "%1.8f" (float %)) xs)))))
 
 (defmethod luxvalue :int
-  [_ id x] (format "\"integer %s\" [%d]\n" (name id) (int x)))
+  [_ _ id x] (format "\"integer %s\" [%d]\n" (name id) (int x)))
 
 (defmethod luxvalue :int-vec
-  [_ id xs]
+  [_ _ id xs]
   (format "\"integer %s\" [%s]\n"
           (name id)
           (apply str (interpose " " (map #(format "%d" (int %)) xs)))))
 
 (defmethod luxvalue :point-vec
-  [_ id xs]
+  [_ _ id xs]
   (format "\"point %s\" [%s]\n"
           (name id)
           (apply str (interpose " " (map #(format "%1.8f" (float %)) (mapcat identity xs))))))
 
 (defmethod luxvalue :bool
-  [_ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) x))
+  [_ _ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) x))
 
 (defmethod luxvalue :string
-  [_ id x] (format "\"string %s\" [\"%s\"]\n" (name id) x))
+  [_ _ id x] (format "\"string %s\" [\"%s\"]\n" (name id) x))
 
 (defmethod luxvalue :string-vec
-  [_ id xs]
+  [_ _ id xs]
   (format "\"string %s\" [%s]\n"
           (name id)
           (apply str (interpose " " (map #(format "\"%s\"" %) xs)))))
 
 (defmethod luxvalue :color
-  [_ id [r g b]]
+  [_ _ id [r g b]]
   (format "\"color %s\" [%1.6f %1.6f %1.6f]\n" (name id) (float r) (float g) (float b)))
 
 (defmethod luxvalue :log-color
-  [_ id [col scale depth]]
+  [_ _ id [col scale depth]]
   (let [[r g b] (scaled-absorption-color-at-depth col scale depth)]
     (format "\"color %s\" [%1.6f %1.6f %1.6f]\n" (name id) r g b)))
 
 (defmethod luxvalue :renderer
-  [_ id opts]
-  (luxentity "Renderer" id opts))
+  [_ scene id opts]
+  (luxentity scene "Renderer" id opts))
 
 (defmethod luxvalue :sampler
-  [_ id opts]
-  (luxentity "Sampler" id opts))
+  [_ scene id opts]
+  (luxentity scene "Sampler" id opts))
 
 (defmethod luxvalue :integrator
-  [_ id opts]
-  (luxentity "SurfaceIntegrator" id opts))
+  [_ scene id opts]
+  (luxentity scene "SurfaceIntegrator" id opts))
 
 (defmethod luxvalue :volume-integrator
-  [_ id _]
+  [_ _ id _]
   (format "VolumeIntegrator \"%s\"\n\n" id))
 
 (defmethod luxvalue :accelerator
-  [_ id opts]
-  (luxentity "Accelerator" id opts))
+  [_ scene id opts]
+  (luxentity scene "Accelerator" id opts))
 
 (defmethod luxvalue :film
-  [_ id opts]
-  (luxentity "Film" id opts))
+  [_ scene id opts]
+  (luxentity scene "Film" id opts))
 
 (defmethod luxvalue :area-light
-  [_ id opts]
+  [_ scene id opts]
   (let [[stype sopts] (:__shape opts)]
     (str
-     (luxentity "AreaLightSource" "area" opts)
-     (luxvalue stype (str id "-mesh") sopts))))
+     (luxentity scene "AreaLightSource" "area" opts)
+     (luxvalue stype scene (str id "-mesh") sopts))))
 
 (defmethod luxvalue :light
-  [_ id opts]
+  [_ scene id opts]
   (luxattrib
-   id
+   scene id opts
    (str
-    (when-let [tx (:__transform opts)] (luxtransform tx))
-    (when-let [mat (:__material opts)] (material-ref mat))
     (when-let [g (:__parent opts)] (format "LightGroup \"%s\"\n" g))
-    (luxvalue (:__type opts) id opts))))
+    (luxvalue (:__type opts) scene id opts))))
 
 (defmethod luxvalue :camera
-  [_ id opts]
+  [_ scene id opts]
   (let [{[ex ey ez] :eye [tx ty tz] :target [ux uy uz] :up} (:__lookat opts)]
     (str
      (format "LookAt %1.6f %1.6f %1.6f  %1.6f %1.6f %1.6f  %1.6f %1.6f %1.6f\n\n"
              ex ey ez tx ty tz ux uy uz)
-     (luxentity "Camera" id opts))))
+     (luxentity scene "Camera" id opts))))
 
 (defmethod luxvalue :material
-  [_ id opts]
-  (luxentity "MakeNamedMaterial" id opts))
+  [_ scene id opts]
+  (luxentity scene "MakeNamedMaterial" id opts))
 
 (defmethod luxvalue :volume
-  [_ id opts]
+  [_ scene id opts]
   (str
    (format "MakeNamedVolume \"%s\" \"%s\"\n" (name id) (name (:__type opts)))
-   (luxvalues opts)
+   (luxvalues scene opts)
    "\n"))
 
 (defmethod luxvalue :trimesh
-  [_ id {:keys [__mesh]}]
+  [_ scene id {:keys [__mesh]}]
   (let [verts (vec (keys (:vertices __mesh)))
         vidx (zipmap verts (range))
         indices (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)]) (:faces __mesh))]
     (luxentity
-     "Shape" "trianglemesh"
+     scene "Shape" "trianglemesh"
      {:indices [:int-vec (vec indices)]
       :P [:point-vec verts]
       :name [:string id]})))
 
 (defmethod luxvalue :plymesh
-  [_ id {:keys [__mesh __basename path filename] :as opts}]
+  [_ scene id {:keys [__mesh __basename path filename] :as opts}]
   (when __mesh
     (let [path (or (second filename) (str __basename ".ply"))]
       (prn "exporting ply mesh: " id path)
       (with-open [out (io/output-stream path)]
         (mio/write-ply out __mesh))))
-  (luxentity "Shape" "plymesh" opts))
+  (luxentity scene "Shape" "plymesh" opts))
 
 (defmethod luxvalue :stlmesh
-  [_ id {:keys [__mesh __basename path filename] :as opts}]
+  [_ scene id {:keys [__mesh __basename path filename] :as opts}]
   (when __mesh
     (let [path (or (second filename) (str __basename ".stl"))]
       (prn "exporting stl mesh: " id path)
       (with-open [out (io/output-stream path)]
         (mio/write-stl out __mesh))))
-  (luxentity "Shape" "stlmesh" opts))
+  (luxentity scene "Shape" "stlmesh" opts))
 
 (defmethod luxvalue :shape
-  [_ id {:keys [__type __transform __material] :as opts}]
+  [_ scene id {:keys [__type] :as opts}]
   (luxattrib
-   id
+   scene id opts
    (str
-    (when __transform (luxtransform __transform))
-    (when __material (material-ref __material))
     (if ((set (vals mesh-types)) __type)
-      (luxvalue __type id opts)
-      (luxentity "Shape" __type opts)))))
+      (luxvalue __type scene id opts)
+      (luxentity scene "Shape" __type opts)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; serialization
 
 (defn- lx-header
   [path & comments]
-  (prn comments)
   (format "# %s\n# generated %s by luxor v%s\n%s\n"
           path (.toString (Date.)) version
           (if (seq comments)
@@ -304,7 +307,7 @@
      (let [scene* (reduce
                    (fn [s [k type]]
                      (if-let [ents (k scene)]
-                       (assoc s k (luxvalues-typed type ents))
+                       (assoc s k (luxvalues-typed scene type ents))
                        s))
                    (select-keys scene [:comments :includes])
                    {:renderer :renderer
@@ -345,28 +348,38 @@
   [scene & paths]
   (update-in scene [:includes :partials] (fnil into []) paths))
 
+(defn- material-common
+  [{:keys [interior exterior]}]
+  {:__interior interior
+   :__exterior exterior})
+
 (defn material-null
   [scene id]
   (append scene :materials (name id) {:type [:string "null"]} true))
 
 (defn material-matte
-  [scene id & {:keys [diffuse sigma] :or {diffuse [1.0 1.0 1.0] sigma 0}}]
+  [scene id & {:keys [diffuse sigma] :or {diffuse [1.0 1.0 1.0] sigma 0} :as opts}]
   (append
    scene :materials (name id)
-   {:type [:string "matte"]
-    :Kd [:color diffuse]
-    :sigma [:float sigma]}))
+   (merge
+    (material-common opts)
+    {:type [:string "matte"]
+     :Kd [:color diffuse]
+     :sigma [:float sigma]})))
 
 (defn material-matte-translucent
   [scene id & {:keys [reflect transmit sigma conserve?]
-               :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65] sigma 0 conserve? true}}]
+               :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65] sigma 0 conserve? true}
+               :as opts}]
   (append
    scene :materials (name id)
-   {:type [:string "mattetranslucent"]
-    :Kr [:color reflect]
-    :Kt [:color transmit]
-    :sigma [:float sigma]
-    :energyconserving [:bool conserve?]}))
+   (merge
+    (material-common opts)
+    {:type [:string "mattetranslucent"]
+     :Kr [:color reflect]
+     :Kt [:color transmit]
+     :sigma [:float sigma]
+     :energyconserving [:bool conserve?]})))
 
 (defn volume
   [scene id & {:keys [type fresnel absorb abs-scale abs-depth]
@@ -655,16 +668,18 @@
   (def lxs (-> (lux-scene)
                (camera :eye [10 -2 10] :target [0 0 0] :up [0 0 1])
                (film :width 640 :height 360 :display-interval 5 :halt-spp 50)
+               (volume "inside" :type :clear :absorb [0.972 0.8 0.7] :abs-depth 1 :fresnel 2.04)
                (area-light "left" :p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20})
                (area-light "top" :p [0 0 7] :size 6 :gain 0.5 :tx {:translate [0 4 0] :rx -45})
                (area-light "right" :p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20})
                (shape-disk "floor" :radius 20 :material "white")
                ;;(shape-disk "d1" :radius 3 :inner-radius 2 :material "red" :tx {:rx -30})
                ;;(shape-disk "d2" :radius 3 :inner-radius 2 :material "orange" :tx {:rx 30})
-               (stl-mesh "map" :material "orange" :tx {:scale [5 3 1] :translate [0 0 1]} :mesh (g/extrude (r/rect -1 -1 2 2) {:depth 1 :scale 0.8}))
+               (stl-mesh "map" :material "orange-trans" :tx {:scale [5 3 1] :translate [0 0 1]} :mesh (g/extrude (r/rect -1 -1 2 2) {:depth 1 :scale 0.8}))
                (material-matte "white" :diffuse [0.8 0.8 0.8])
                (material-matte "red" :diffuse [1.0 0 0])
                (material-matte "orange" :diffuse [1.0 0.3 0])
-               (serialize-scene "foo" false)
+               (material-matte-translucent "orange-trans" :interior "inside" :transmit [0.9 0.3 0.05] :reflect [0.3 0.3 0.3] :conserve? true)
+               ;;(serialize-scene "foo" false)
                ))
   )
