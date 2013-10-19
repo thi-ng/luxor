@@ -1,5 +1,8 @@
 (ns thi.ng.luxor.core
   (:require
+   [thi.ng.luxor.config :as conf]
+   [thi.ng.luxor.compiler :as c]
+   [thi.ng.luxor.color :as col]
    [thi.ng.luxor.presets :as presets]
    [thi.ng.common.math.core :as m]
    [thi.ng.geom.core :as g]
@@ -12,25 +15,6 @@
    [java.io File Writer OutputStreamWriter StringWriter]
    [java.util Date]))
 
-;; References:
-;; http://www.luxrender.net/wiki/Scene_file_format_dev
-
-(def ^:const version "0.1.0-SNAPSHOT")
-
-(def ^:const mesh-types            {:inline :trimesh :ply :plymesh :stl :stlmesh})
-(def ^:const volume-types          #{:clear :homogenous :heterogenous})
-(def ^:const volume-integrators    #{:none :single :emission :multi})
-(def ^:const sppm-accelerators     #{:hashgrid :hybridhashgrid :kdtree :parallelhashgrid})
-(def ^:const pixel-samplers        #{:hilbert :liner :tile :vegas})
-(def ^:const photon-samplers       #{:halton :amc})
-(def ^:const light-strategies      #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
-(def ^:const light-path-strategies #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
-(def ^:const rr-strategies         #{:none :efficiency :probability})
-
-(def ^:dynamic *indent*         2)
-(def ^:dynamic *degrees*        true)
-(def ^:dynamic *float-format*   "%1.8f")
-
 (defn kw-or-num? [x] (or (keyword? x) (number? x)))
 (defn kw-or-str? [x] (or (keyword? x) (string? x)))
 (defn color? [x] (and (sequential? x) (= 3 (count x))))
@@ -41,205 +25,7 @@
   ([pred x] (if x (pred x) true))
   ([test pred x] (if (test x) (pred x) true)))
 
-(defn convert-angle [theta] (if *degrees* (m/radians theta) theta))
-
-;; TODO
-(defn hsb->rgb
-  [[h s b]] [h s b])
-
-(defn scaled-absorption-at-depth
-  [x scale d]
-  (* (/ (Math/log (max x 1e-30)) d) scale (if (= x 1.0) 1 -1)))
-
-(defn scaled-absorption-color-at-depth
-  [rgb scale d]
-  (mapv #(scaled-absorption-at-depth % scale d) rgb))
-
-(defn- material-ref
-  [scene id]
-  (let [{:keys [__interior __exterior]} (get-in scene [:materials id])]
-    (str
-     (format "NamedMaterial \"%s\"\n" id)
-     (when __interior (format "Interior \"%s\"\n" __interior))
-     (when __exterior (format "Exterior \"%s\"\n" __exterior)))))
-
-(declare luxvalue)
-
-(defn- filter-opts
-  [xs] (->> xs (filter #(not (.startsWith (name (key %)) "__"))) (into {})))
-
-(defn- luxvalues
-  [scene opts]
-  (let [indent (apply str (repeat *indent* \space))]
-    (->> opts
-         (filter-opts)
-         (into (sorted-map))
-         (reduce-kv
-          (fn [s k [type v]] (str s indent (luxvalue type scene k v))) ""))))
-
-(defn- luxvalues-typed
-  [scene type coll]
-  (reduce (fn [s [k v]] (str s (luxvalue type scene k v))) "" (into (sorted-map) coll)))
-
-(defn- luxentity
-  [scene type id opts]
-  (format "%s \"%s\"\n%s\n" type (name id) (luxvalues scene opts)))
-
-(defn- luxattrib
-  [scene id type {:keys [__transform __material]} body]
-  (let [sep (format "# -------- %s: %s --------\n" type id)
-        inject (str
-                (when __transform (luxtransform __transform))
-                (when __material (material-ref scene __material)))]
-    (format "%sAttributeBegin\n%s%sAttributeEnd\n%s\n" sep inject body sep)))
-
-(defn- luxtransform
-  [tx]
-  (format "Transform [%s]\n"
-          (apply str (interpose " " (map #(format "%1.8f" %) tx)))))
-
-(defmulti luxvalue (fn [type & _] type))
-
-(defmethod luxvalue :float
-  [_ _ id x] (format "\"float %s\" [%1.8f]\n" (name id) (float x)))
-
-(defmethod luxvalue :float-vec
-  [_ _ id xs]
-  (format "\"float %s\" [%s]\n"
-          (name id)
-          (apply str (interpose " " (map #(format "%1.8f" (float %)) xs)))))
-
-(defmethod luxvalue :int
-  [_ _ id x] (format "\"integer %s\" [%d]\n" (name id) (int x)))
-
-(defmethod luxvalue :int-vec
-  [_ _ id xs]
-  (format "\"integer %s\" [%s]\n"
-          (name id)
-          (apply str (interpose " " (map #(format "%d" (int %)) xs)))))
-
-(defmethod luxvalue :point-vec
-  [_ _ id xs]
-  (format "\"point %s\" [%s]\n"
-          (name id)
-          (apply str (interpose " " (map #(format "%1.8f" (float %)) (mapcat identity xs))))))
-
-(defmethod luxvalue :bool
-  [_ _ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) x))
-
-(defmethod luxvalue :string
-  [_ _ id x] (format "\"string %s\" [\"%s\"]\n" (name id) x))
-
-(defmethod luxvalue :string-vec
-  [_ _ id xs]
-  (format "\"string %s\" [%s]\n"
-          (name id)
-          (apply str (interpose " " (map #(format "\"%s\"" %) xs)))))
-
-(defmethod luxvalue :color
-  [_ _ id [r g b]]
-  (format "\"color %s\" [%1.6f %1.6f %1.6f]\n" (name id) (float r) (float g) (float b)))
-
-(defmethod luxvalue :log-color
-  [_ _ id [col scale depth]]
-  (let [[r g b] (scaled-absorption-color-at-depth col scale depth)]
-    (format "\"color %s\" [%1.6f %1.6f %1.6f]\n" (name id) r g b)))
-
-(defmethod luxvalue :renderer
-  [_ scene id opts]
-  (luxentity scene "Renderer" id opts))
-
-(defmethod luxvalue :sampler
-  [_ scene id opts]
-  (luxentity scene "Sampler" id opts))
-
-(defmethod luxvalue :integrator
-  [_ scene id opts]
-  (luxentity scene "SurfaceIntegrator" id opts))
-
-(defmethod luxvalue :volume-integrator
-  [_ _ id _]
-  (format "VolumeIntegrator \"%s\"\n\n" id))
-
-(defmethod luxvalue :accelerator
-  [_ scene id opts]
-  (luxentity scene "Accelerator" id opts))
-
-(defmethod luxvalue :film
-  [_ scene id opts]
-  (luxentity scene "Film" id opts))
-
-(defmethod luxvalue :area-light
-  [_ scene id opts]
-  (let [[stype sopts] (:__shape opts)]
-    (str
-     (luxentity scene "AreaLightSource" "area" opts)
-     (luxvalue stype scene (str id "-mesh") sopts))))
-
-(defmethod luxvalue :light
-  [_ scene id opts]
-  (luxattrib
-   scene id "light" opts
-   (str
-    (when-let [g (:__parent opts)] (format "LightGroup \"%s\"\n" g))
-    (luxvalue (:__type opts) scene id opts))))
-
-(defmethod luxvalue :camera
-  [_ scene id opts]
-  (let [{[ex ey ez] :eye [tx ty tz] :target [ux uy uz] :up} (:__lookat opts)]
-    (str
-     (format "LookAt %1.6f %1.6f %1.6f  %1.6f %1.6f %1.6f  %1.6f %1.6f %1.6f\n\n"
-             ex ey ez tx ty tz ux uy uz)
-     (luxentity scene "Camera" id opts))))
-
-(defmethod luxvalue :material
-  [_ scene id opts]
-  (luxentity scene "MakeNamedMaterial" id opts))
-
-(defmethod luxvalue :volume
-  [_ scene id opts]
-  (str
-   (format "MakeNamedVolume \"%s\" \"%s\"\n" (name id) (name (:__type opts)))
-   (luxvalues scene opts)
-   "\n"))
-
-(defmethod luxvalue :trimesh
-  [_ scene id {:keys [__mesh]}]
-  (let [verts (vec (keys (:vertices __mesh)))
-        vidx (zipmap verts (range))
-        indices (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)]) (:faces __mesh))]
-    (luxentity
-     scene "Shape" "trianglemesh"
-     {:indices [:int-vec (vec indices)]
-      :P [:point-vec verts]
-      :name [:string id]})))
-
-(defmethod luxvalue :plymesh
-  [_ scene id {:keys [__mesh __basename path filename] :as opts}]
-  (when __mesh
-    (let [path (or (second filename) (str __basename ".ply"))]
-      (prn "exporting ply mesh: " id path)
-      (with-open [out (io/output-stream path)]
-        (mio/write-ply out __mesh))))
-  (luxentity scene "Shape" "plymesh" opts))
-
-(defmethod luxvalue :stlmesh
-  [_ scene id {:keys [__mesh __basename path filename] :as opts}]
-  (when __mesh
-    (let [path (or (second filename) (str __basename ".stl"))]
-      (prn "exporting stl mesh: " id path)
-      (with-open [out (io/output-stream path)]
-        (mio/write-stl out __mesh))))
-  (luxentity scene "Shape" "stlmesh" opts))
-
-(defmethod luxvalue :shape
-  [_ scene id {:keys [__type] :as opts}]
-  (luxattrib
-   scene id "shape" opts
-   (str
-    (if ((set (vals mesh-types)) __type)
-      (luxvalue __type scene id opts)
-      (luxentity scene "Shape" __type opts)))))
+(defn convert-angle [theta] (if conf/*degrees* (m/radians theta) theta))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; serialization
@@ -247,7 +33,7 @@
 (defn- lx-header
   [path & comments]
   (format "# %s\n# generated %s by luxor v%s\n%s\n"
-          path (.toString (Date.)) version
+          path (.toString (Date.)) conf/version
           (if (seq comments)
             (reduce #(str % "# " %2 "\n") "#\n# Comments:\n" comments)
             "")))
@@ -325,7 +111,7 @@
      (let [scene* (reduce
                    (fn [s [k type]]
                      (if-let [ents (k scene)]
-                       (assoc s k (luxvalues-typed scene type ents))
+                       (assoc s k (c/luxvalues-typed scene type ents))
                        s))
                    (select-keys scene [:comments :includes])
                    {:renderer :renderer
@@ -394,7 +180,7 @@
    (merge
     (material-common opts)
     {:type [:string "matte"]
-     :Kd [:color (if diffuse-hsb (hsb->rgb diffuse-hsb) diffuse)]
+     :Kd [:color (if diffuse-hsb (col/hsb->rgb diffuse-hsb) diffuse)]
      :sigma [:float sigma]})))
 
 (defn material-matte-translucent
@@ -410,8 +196,8 @@
    (merge
     (material-common opts)
     {:type [:string "mattetranslucent"]
-     :Kr [:color (if reflect-hsb (hsb->rgb reflect-hsb) reflect)]
-     :Kt [:color (if transmit-hsb (hsb->rgb transmit-hsb) transmit)]
+     :Kr [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
+     :Kt [:color (if transmit-hsb (col/hsb->rgb transmit-hsb) transmit)]
      :sigma [:float sigma]
      :energyconserving [:bool conserve?]})))
 
@@ -420,7 +206,7 @@
                :or {type :clear absorb [1.0 1.0 1.0]
                     abs-scale 1.0 abs-depth 1.0 ior :air}}]
   {:pre [(kw-or-str? id)
-         (volume-types type)
+         (conf/volume-types type)
          (kw-or-num? ior) (optional keyword? presets/ior-presets ior)
          (color? absorb) (optional color? absorb-hsb)
          (number? abs-scale) (number? abs-depth)]}
@@ -428,12 +214,12 @@
    scene :volumes (name id)
    {:__type type
     :fresnel [:float (if (keyword ior) (presets/ior-presets ior) ior)]
-    :absorption [:log-color [(if absorb-hsb (hsb->rgb absorb-hsb) absorb)
+    :absorption [:log-color [(if absorb-hsb (col/hsb->rgb absorb-hsb) absorb)
                              abs-scale abs-depth]]}))
 
 (defn volume-integrator
   [scene id]
-  {:pre [(volume-integrators id)]}
+  {:pre [(conf/volume-integrators id)]}
   (append-singleton scene :volume-integrator (name id) {}))
 
 (defn renderer-slg
@@ -452,6 +238,7 @@
   [scene]
   (append-singleton scene :renderer "sppm" {}))
 
+
 (defn sampler-sobol
   [scene & {:keys [noise-aware]}]
   (append-singleton
@@ -460,7 +247,7 @@
 
 (defn- integrator-common
   [{:keys [shadow-rays light-strategy] :or {shadow-rays 1 light-strategy :auto}}]
-  {:pre [(number? shadow-rays) (light-strategies light-strategy)]}
+  {:pre [(number? shadow-rays) (conf/light-strategies light-strategy)]}
   {:shadowraycount [:int shadow-rays]
    :lightstrategy [:string (name light-strategy)]})
 
@@ -469,7 +256,7 @@
             :or {eye-depth 16 light-depth 16 light-rays 1 path-strategy :auto}
             :as opts}]
   {:pre [(number? eye-depth) (number? light-depth) (number? light-rays)
-         (light-path-strategies path-strategy)]}
+         (conf/light-path-strategies path-strategy)]}
   (append-singleton
    scene :integrator "bidirectional"
    (merge
@@ -495,8 +282,9 @@
                  photon-sampler :halton}}]
   {:pre [(every? number? [max-eye max-photon photons
                           hit-points start-radius alpha wave-passes])
-         (sppm-accelerators accel) (pixel-samplers pixel-sampler)
-         (photon-samplers photon-sampler)]}
+         (conf/sppm-accelerators accel)
+         (conf/pixel-samplers pixel-sampler)
+         (conf/photon-samplers photon-sampler)]}
   (append-singleton
    scene :integrator "sppm"
    {:maxeyedepth [:int max-eye]
@@ -591,10 +379,10 @@
 
 (defn camera
   [scene & {:keys [type eye target up
-                   fov lens-radius focal-dist blades auto-focus?
-                   shutter-open shutter-close]
+                   fov lens-radius focal-dist blades power distribution
+                   auto-focus? shutter-open shutter-close]
             :or {type "perspective" fov 60
-                 lens-radius 0 blades 0
+                 lens-radius 0 blades 0 power 1 distribution :uniform
                  shutter-open 0 shutter-close 0.041666
                  eye [0 -10 0] target [0 0 0]}}]
   (let [opts {:fov [:float fov]
@@ -602,6 +390,9 @@
               :shutterclose [:float shutter-close]
               :lensradius [:float lens-radius]
               :blades [:int blades]
+              :power [:int power]
+              :distribution [:string (name distribution)]
+              :float [:int power]
               :__lookat {:eye (g/vec3 eye) :target (g/vec3 target)
                          :up (if up
                                (g/vec3 up)
@@ -666,7 +457,7 @@
       (when tx (transform-common scene tx))
       (light-common scene opts)
       {:__type :area-light
-       :__shape [(mesh-types mesh-type) {:__mesh mesh :__basename (str "light-" id)}]
+       :__shape [(conf/mesh-types mesh-type) {:__mesh mesh :__basename (str "light-" id)}]
        :nsamples [:int samples]}))))
 
 (defn shape-disk
