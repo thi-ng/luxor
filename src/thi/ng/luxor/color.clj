@@ -2,24 +2,24 @@
   (:import
    [java.awt Color]))
 
-(defn rgbvec
+(def ^:const inv8bit (/ 1.0 255))
+
+(defn rgb24->rgb
   [rgb]
-  (let [i8 (/ 1.0 255)]
-    [(* i8 (bit-and (bit-shift-right rgb 16) 0xff))
-     (* i8 (bit-and (bit-shift-right rgb 8) 0xff))
-     (* i8 (bit-and rgb 0xff))]))
+  [(* inv8bit (bit-and (bit-shift-right rgb 16) 0xff))
+   (* inv8bit (bit-and (bit-shift-right rgb 8) 0xff))
+   (* inv8bit (bit-and rgb 0xff))])
 
 (defn hsb->rgb
   [[h s b]]
-  (let [rgb (bit-and (Color/HSBtoRGB (float h) (float s) (float b)) 0xffffff)
-        i8 (/ 1.0 255)]
-    [(* i8 (bit-and (bit-shift-right rgb 16) 0xff))
-     (* i8 (bit-and (bit-shift-right rgb 8) 0xff))
-     (* i8 (bit-and rgb 0xff))]))
+  (let [rgb (bit-and (Color/HSBtoRGB (float h) (float s) (float b)) 0xffffff)]
+    [(* inv8bit (bit-and (bit-shift-right rgb 16) 0xff))
+     (* inv8bit (bit-and (bit-shift-right rgb 8) 0xff))
+     (* inv8bit (bit-and rgb 0xff))]))
 
 (defn scaled-absorption-at-depth
   [x scale d]
-  (* (/ (Math/log (max x 1e-30)) d) scale (if (= x 1.0) 1 -1)))
+  (* (/ (Math/log (max x 1e-30)) d) (if (= x 1.0) scale (- scale))))
 
 (defn scaled-absorption-color-at-depth
   [rgb scale d]
