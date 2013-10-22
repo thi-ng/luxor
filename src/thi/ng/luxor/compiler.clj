@@ -38,11 +38,11 @@
 (defn luxtransform
   [tx]
   (format "Transform [%s]\n"
-          (apply str (interpose " " (map #(format "%1.8f" %) tx)))))
+          (apply str (interpose " " (map #(format conf/*float-format* %) tx)))))
 
 (defn luxattrib
   [scene id type {:keys [__transform __material]} body]
-  (let [sep (format "# -------- %s: %s --------\n" type id)
+  (let [sep (format "# -------- %s: %s --------\n" type (name id))
         inject (str
                 (when __transform (luxtransform __transform))
                 (when __material (material-ref scene __material)))]
@@ -51,13 +51,13 @@
 (defmulti emit (fn [type & _] type))
 
 (defmethod emit :float
-  [_ _ id x] (format "\"float %s\" [%1.8f]\n" (name id) (float x)))
+  [_ _ id x] (format (str "\"float %s\" [" conf/*float-format* "]\n") (name id) (float x)))
 
 (defmethod emit :float-vec
   [_ _ id xs]
   (format "\"float %s\" [%s]\n"
           (name id)
-          (apply str (interpose " " (map #(format "%1.8f" (float %)) xs)))))
+          (apply str (interpose " " (map #(format conf/*float-format* (float %)) xs)))))
 
 (defmethod emit :int
   [_ _ id x] (format "\"integer %s\" [%d]\n" (name id) (int x)))
@@ -72,7 +72,8 @@
   [_ _ id xs]
   (format "\"point %s\" [%s]\n"
           (name id)
-          (apply str (interpose " " (map #(format "%1.8f" (float %)) (mapcat identity xs))))))
+          (apply str (interpose " " (map #(format conf/*float-format* (float %))
+                                         (mapcat identity xs))))))
 
 (defmethod emit :bool
   [_ _ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) x))
@@ -88,12 +89,16 @@
 
 (defmethod emit :color
   [_ _ id [r g b]]
-  (format "\"color %s\" [%1.6f %1.6f %1.6f]\n" (name id) (float r) (float g) (float b)))
+  (let [ff conf/*float-format*]
+    (format (str "\"color %s\" [" ff " " ff " " ff "]\n")
+            (name id) (float r) (float g) (float b))))
 
 (defmethod emit :log-color
   [_ _ id [col scale depth]]
-  (let [[r g b] (col/scaled-absorption-color-at-depth col scale depth)]
-    (format "\"color %s\" [%1.6f %1.6f %1.6f]\n" (name id) r g b)))
+  (let [[r g b] (col/scaled-absorption-color-at-depth col scale depth)
+        ff conf/*float-format*]
+    (format
+     (str "\"color %s\" [" ff " " ff " " ff "]\n") (name id) r g b)))
 
 (defmethod emit :renderer
   [_ scene id opts]
@@ -114,6 +119,10 @@
 (defmethod emit :accelerator
   [_ scene id opts]
   (luxentity scene "Accelerator" id opts))
+
+(defmethod emit :filter
+  [_ scene id opts]
+  (luxentity scene "PixelFilter" id opts))
 
 (defmethod emit :film
   [_ scene id opts]
@@ -136,10 +145,11 @@
 
 (defmethod emit :camera
   [_ scene id opts]
-  (let [{[ex ey ez] :eye [tx ty tz] :target [ux uy uz] :up} (:__lookat opts)]
+  (let [{[ex ey ez] :eye [tx ty tz] :target [ux uy uz] :up} (:__lookat opts)
+        ff conf/*float-format*
+        ff3 (str ff " " ff " " ff " ")]
     (str
-     (format "LookAt %1.6f %1.6f %1.6f  %1.6f %1.6f %1.6f  %1.6f %1.6f %1.6f\n\n"
-             ex ey ez tx ty tz ux uy uz)
+     (format (str "LookAt " ff3 ff3 ff3 "\n\n") ex ey ez tx ty tz ux uy uz)
      (luxentity scene "Camera" id opts))))
 
 (defmethod emit :material
