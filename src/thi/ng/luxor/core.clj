@@ -351,9 +351,9 @@
    scene :film "fleximage"
    (merge
     (get-in scene [:film "fleximage"])
-    {:xresolution [:int width]
+    {:__aspect (double (/ height width))
+     :xresolution [:int width]
      :yresolution [:int height]
-     :__aspect (double (/ height width))
      :gamma [:float gamma]
      :filename [:string suffix]
      :colorspace_white [:float-vec white]
@@ -454,7 +454,11 @@
 
 (defn light-group
   [scene id {:keys [gain] :or {gain 1.0}}]
-  (append scene :light-groups id {:__gain [:float gain]}))
+  (append scene :light-groups id {:__gain gain}))
+
+(defn light-groups
+  [scene groups]
+  (reduce #(apply light-group % %2) scene groups))
 
 (defn- light-common
   [scene {:keys [group color gain power efficacy importance tx material hidden?]
@@ -464,7 +468,7 @@
    :__material (or material (when hidden? "__hidden__"))
    :L [:color color]
    :gain [:float (if group
-                   (* (get-in scene [:light-groups group :__gain 1] 1.0) gain)
+                   (* (get-in scene [:light-groups group :__gain] 1.0) gain)
                    gain)]
    :power [:float power]
    :efficacy [:float efficacy]
@@ -487,6 +491,18 @@
       {:__type :area-light
        :__shape [(conf/mesh-types mesh-type) {:__mesh mesh :__basename (str "light-" id)}]
        :nsamples [:int samples]}))))
+
+(def light-types
+  {:area area-light})
+
+(defn lights
+  [scene lspecs]
+  (reduce
+   (fn [scene [id {ltype :type :as spec}]]
+     (if-let [lfn (light-types ltype)]
+       (lfn scene id spec)
+       (prn "WARN: unknown light type: " ltype)))
+   scene lspecs))
 
 (defn shape-disk
   [scene id {:keys [z radius inner-radius phi tx material]
