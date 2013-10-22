@@ -17,4 +17,4 @@
 
 (def ^:dynamic *indent*         2)
 (def ^:dynamic *degrees*        true)
-(def ^:dynamic *float-format*   "%1.8f")
+(def ^:dynamic *float-format*   "%1.10f")

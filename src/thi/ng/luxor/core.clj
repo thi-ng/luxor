@@ -68,6 +68,7 @@
              (:sampler scene)
              (:integrator scene)
              (:volume-integrator scene)
+             (:filter scene)
              (:film scene)
              (:camera scene)
              "WorldBegin\n\n"
@@ -119,6 +120,7 @@
                     :sampler :sampler
                     :integrator :integrator
                     :volume-integrator :volume-integrator
+                    :filter :filter
                     :film :film
                     :camera :camera
                     :lights :light
@@ -309,6 +311,16 @@
     :pixelsampler [:string (name pixel-sampler)]
     :photonsampler [:string (name photon-sampler)]}))
 
+(defn filter-mitchell
+  [scene {:keys [coeff coeffB coeffC size w h] :or {coeff 1/3 size 2.0}}]
+  (append-singleton
+   scene :filter "mitchell"
+   {:supersample [:bool true]
+    :B [:float (or coeffB coeff)]
+    :C [:float (or coeffC coeff)]
+    :xwidth [:float (or w size)]
+    :ywidth [:float (or h size)]}))
+
 (defn accelerator-qbvh
   [scene {:as opts}]
   (append-singleton scene :accel "qbvh" (or opts {})))
@@ -334,8 +346,7 @@
                write-tga? false tga-channels "RGB"
                premultiply? false
                ldr-method "cut"
-               write-interval 180 display-interval 12
-               halt-spp 0 halt-time 0 halt-threshold 0}}]
+               write-interval 180 display-interval 12}}]
   (append-singleton
    scene :film "fleximage"
    (merge
@@ -364,10 +375,10 @@
      :ldr_clamp_method [:string ldr-method]
      :writeinterval [:int write-interval]
      :flmwriteinterval [:int write-interval]
-     :displayinterval [:int display-interval]
-     :haltspp [:int halt-spp]
-     :halttime [:int halt-time]
-     :haltthreshold [:int halt-threshold]}
+     :displayinterval [:int display-interval]}
+    (when halt-spp {:haltspp [:int halt-spp]})
+    (when halt-time {:halttime [:int halt-time]})
+    (when halt-threshold {:haltthreshold [:int halt-threshold]})
     (when response
       {:cameraresponse [:string (if (keyword? response)
                                   (response presets/film-response-presets)
@@ -387,14 +398,16 @@
 
 (defn camera
   [scene {:keys [type eye target up
-                 fov lens-radius focal-dist blades power distribution
+                 fov lens-radius focal-dist focal-point blades power distribution
                  auto-focus? shutter-open shutter-close
                  window]
           :or {type "perspective" fov 60
                lens-radius 0 blades 0 power 1 distribution :uniform
                shutter-open 0 shutter-close 1.0
                eye [0 -10 0] target [0 0 0]}}]
-  (let [opts {:fov [:float fov]
+  (let [eye (g/vec3 eye)
+        target (g/vec3 target)
+        opts {:fov [:float fov]
               :shutteropen [:float shutter-open]
               :shutterclose [:float shutter-close]
               :lensradius [:float lens-radius]
@@ -405,15 +418,18 @@
                              (or window
                                  (let [a (get-in scene [:film "fleximage" :__aspect])]
                                    [-1 1 (- a) a]))]
-              :__lookat {:eye (g/vec3 eye) :target (g/vec3 target)
+              :__lookat {:eye eye :target target
                          :up (if up
                                (g/vec3 up)
-                               (g/normalize (g/cross (g/sub (g/vec3 eye) (g/vec3 target)) g/V3_X)))}}
-        opts (if focal-dist
-               (assoc opts
-                 :focaldistance [:float focal-dist]
-                 :autofocus [:bool false])
-               (assoc opts :autofocus [:bool true]))]
+                               (g/normalize (g/cross (g/sub eye target) g/V3_X)))}}
+        opts (cond
+              focal-dist  (assoc opts
+                           :focaldistance [:float focal-dist]
+                           :autofocus [:bool false])
+              focal-point (assoc opts
+                            :focaldistance [:float (g/dist eye (g/vec3 focal-point))]
+                            :autofocus [:bool false])
+              :default    (assoc opts :autofocus [:bool true]))]
     (append-singleton scene :camera type opts)))
 
 (defn- make-transform-matrix
@@ -432,7 +448,6 @@
         mat (if scale (g/scale mat scale) mat)]
     (vals (g/transpose mat))))
 
-;; TODO is scene needed as arg?
 (defn- transform-common
   [scene {:keys [matrix] :as tx}]
   {:__transform (if matrix matrix (make-transform-matrix tx))})
@@ -519,6 +534,7 @@
       (renderer-sppm)
       (sampler-sobol {})
       (integrator-sppm {})
+      (filter-mitchell {})
       (volume-integrator :multi)
       (accelerator-qbvh {})
       (film {})
