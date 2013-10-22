@@ -11,7 +11,7 @@
   [scene id]
   (let [{:keys [__interior __exterior]} (get-in scene [:materials id])]
     (str
-     (format "NamedMaterial \"%s\"\n" id)
+     (format "NamedMaterial \"%s\"\n" (name id))
      (when __interior (format "Interior \"%s\"\n" __interior))
      (when __exterior (format "Exterior \"%s\"\n" __exterior)))))
 

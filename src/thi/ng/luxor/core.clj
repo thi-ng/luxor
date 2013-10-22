@@ -56,7 +56,7 @@
     (if include? (include-file* path) partial)))
 
 ;; TODO rename into export-scene & split out serialize part
-(defn serialize-lxs
+(defn- serialize-lxs
   [scene base-path separate-files?]
   (let [base-name (path-filename base-path)
         lxs-path (str base-path ".lxs")
@@ -80,7 +80,7 @@
     (spit lxs-path lxs)
     lxs))
 
-(defn serialize-lxm
+(defn- serialize-lxm
   [{:keys [materials]} base-path]
   (when materials
     (let [path (str base-path ".lxm")
@@ -88,7 +88,7 @@
       (spit path body)
       body)))
 
-(defn serialize-lxv
+(defn- serialize-lxv
   [{:keys [volumes]} base-path]
   (when volumes
     (let [path (str base-path ".lxv")
@@ -96,7 +96,7 @@
       (spit path body)
       body)))
 
-(defn serialize-lxo
+(defn- serialize-lxo
   [{:keys [geometry]} base-path]
   (when geometry
     (let [path (str base-path ".lxo")
@@ -161,7 +161,7 @@
    :__exterior exterior})
 
 (defn material-null
-  [scene id & {:as opts}]
+  [scene id {:as opts}]
   {:pre [(kw-or-str? id)]}
   (append
    scene :materials (name id)
@@ -170,8 +170,8 @@
     {:type [:string "null"]})))
 
 (defn material-matte
-  [scene id & {:keys [diffuse diffuse-hsb sigma]
-               :or {diffuse [1.0 1.0 1.0] sigma 0} :as opts}]
+  [scene id {:keys [diffuse diffuse-hsb sigma]
+             :or {diffuse [1.0 1.0 1.0] sigma 0} :as opts}]
   {:pre [(kw-or-str? id)
          (color? diffuse) (optional color? diffuse-hsb)
          (number? sigma)]}
@@ -184,9 +184,9 @@
      :sigma [:float sigma]})))
 
 (defn material-matte-translucent
-  [scene id & {:keys [reflect reflect-hsb transmit transmit-hsb sigma conserve?]
-               :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65] sigma 0 conserve? true}
-               :as opts}]
+  [scene id {:keys [reflect reflect-hsb transmit transmit-hsb sigma conserve?]
+             :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65] sigma 0 conserve? true}
+             :as opts}]
   {:pre [(kw-or-str? id)
          (color? reflect) (optional color? reflect-hsb)
          (color? transmit) (optional color? transmit-hsb)
@@ -202,9 +202,9 @@
      :energyconserving [:bool conserve?]})))
 
 (defn volume
-  [scene id & {:keys [type ior absorb absorb-hsb abs-scale abs-depth]
-               :or {type :clear absorb [1.0 1.0 1.0]
-                    abs-scale 1.0 abs-depth 1.0 ior :air}}]
+  [scene id {:keys [type ior absorb absorb-hsb abs-scale abs-depth]
+             :or {type :clear absorb [1.0 1.0 1.0]
+                  abs-scale 1.0 abs-depth 1.0 ior :air}}]
   {:pre [(kw-or-str? id)
          (conf/volume-types type)
          (kw-or-num? ior) (optional keyword? presets/ior-presets ior)
@@ -223,7 +223,7 @@
   (append-singleton scene :volume-integrator (name id) {}))
 
 (defn renderer-slg
-  [scene & {:keys [cpu? gpu? ]}]
+  [scene {:keys [cpu? gpu? ]}]
   (append-singleton
    scene :renderer "slg"
    {:config
@@ -238,12 +238,19 @@
   [scene]
   (append-singleton scene :renderer "sppm" {}))
 
+(defn sampler-ld
+  [scene {:keys [samples noise-aware?] :or {samples 4}}]
+  (append-singleton
+   scene :sampler "lowdiscrepancy"
+   {:pixelsampler [:string "lowdiscrepancy"]
+    :pixelsamples [:int samples]
+    :noiseaware [:bool (optional-bool noise-aware? true)]}))
 
 (defn sampler-sobol
-  [scene & {:keys [noise-aware]}]
+  [scene {:keys [noise-aware?]}]
   (append-singleton
    scene :sampler "sobol"
-   {:noiseaware [:bool (optional-bool noise-aware true)]}))
+   {:noiseaware [:bool (optional-bool noise-aware? true)]}))
 
 (defn- integrator-common
   [{:keys [shadow-rays light-strategy] :or {shadow-rays 1 light-strategy :auto}}]
@@ -252,9 +259,9 @@
    :lightstrategy [:string (name light-strategy)]})
 
 (defn integrator-bidir
-  [scene & {:keys [eye-depth light-depth light-rays path-strategy]
-            :or {eye-depth 16 light-depth 16 light-rays 1 path-strategy :auto}
-            :as opts}]
+  [scene {:keys [eye-depth light-depth light-rays path-strategy]
+          :or {eye-depth 16 light-depth 16 light-rays 1 path-strategy :auto}
+          :as opts}]
   {:pre [(number? eye-depth) (number? light-depth) (number? light-rays)
          (conf/light-path-strategies path-strategy)]}
   (append-singleton
@@ -267,19 +274,19 @@
      :lightpathstrategy [:string (name path-strategy)]})))
 
 (defn integrator-sppm
-  [scene & {:keys [max-eye max-photon
-                   photons hit-points
-                   start-radius alpha
-                   env? direct-light? glossy? use-prob?
-                   wave-passes accel
-                   pixel-sampler photon-sampler]
-            :or {max-eye 48 max-photon 16
-                 photons 2e6 hit-points 0
-                 start-radius 2 alpha 0.7
-                 wave-passes 8
-                 accel :hybridhashgrid
-                 pixel-sampler :hilbert
-                 photon-sampler :halton}}]
+  [scene {:keys [max-eye max-photon
+                 photons hit-points
+                 start-radius alpha
+                 env? direct-light? glossy? use-prob?
+                 wave-passes accel
+                 pixel-sampler photon-sampler]
+          :or {max-eye 48 max-photon 16
+               photons 2e6 hit-points 0
+               start-radius 2 alpha 0.7
+               wave-passes 8
+               accel :hybridhashgrid
+               pixel-sampler :hilbert
+               photon-sampler :halton}}]
   {:pre [(every? number? [max-eye max-photon photons
                           hit-points start-radius alpha wave-passes])
          (conf/sppm-accelerators accel)
@@ -303,38 +310,39 @@
     :photonsampler [:string (name photon-sampler)]}))
 
 (defn accelerator-qbvh
-  [scene & {:as opts}]
+  [scene {:as opts}]
   (append-singleton scene :accel "qbvh" (or opts {})))
 
 (defn film
-  [scene & {:keys [width height gamma
-                   white red green blue
-                   suffix
-                   write-flm? restart-flm?
-                   write-exr? exr-channels exr-imaging? exr-zbuf?
-                   write-png? png-channels png-16bit?
-                   write-tga? tga-channels
-                   premultiply?
-                   ldr-method
-                   write-interval display-interval
-                   halt-spp halt-time halt-threshold
-                   response]
-            :or {width 1280 height 720 gamma 2.2 suffix "out"
-                 white [0.314275 0.329411] red [0.63 0.34] green [0.31 0.595] blue [0.155 0.07]
-                 write-flm? true restart-flm? true
-                 write-exr? false exr-channels "RGBA" exr-imaging? true exr-zbuf? true
-                 write-png? true png-channels "RGB" png-16bit? false
-                 write-tga? false tga-channels "RGB"
-                 premultiply? false
-                 ldr-method "cut"
-                 write-interval 180 display-interval 12
-                 halt-spp 0 halt-time 0 halt-threshold 0}}]
+  [scene {:keys [width height gamma
+                 white red green blue
+                 suffix
+                 write-flm? restart-flm?
+                 write-exr? exr-channels exr-imaging? exr-zbuf?
+                 write-png? png-channels png-16bit?
+                 write-tga? tga-channels
+                 premultiply?
+                 ldr-method
+                 write-interval display-interval
+                 halt-spp halt-time halt-threshold
+                 response]
+          :or {width 1280 height 720 gamma 2.2 suffix "out"
+               white [0.314275 0.329411] red [0.63 0.34] green [0.31 0.595] blue [0.155 0.07]
+               write-flm? true restart-flm? true
+               write-exr? false exr-channels "RGBA" exr-imaging? true exr-zbuf? true
+               write-png? true png-channels "RGB" png-16bit? false
+               write-tga? false tga-channels "RGB"
+               premultiply? false
+               ldr-method "cut"
+               write-interval 180 display-interval 12
+               halt-spp 0 halt-time 0 halt-threshold 0}}]
   (append-singleton
    scene :film "fleximage"
    (merge
     (get-in scene [:film "fleximage"])
     {:xresolution [:int width]
      :yresolution [:int height]
+     :__aspect (double (/ height width))
      :gamma [:float gamma]
      :filename [:string suffix]
      :colorspace_white [:float-vec white]
@@ -366,8 +374,8 @@
                                   response)]}))))
 
 (defn tonemap-linear
-  [scene & {:keys [iso exposure f-stop gamma]
-            :or {iso 100 exposure 1.0 f-stop 4 gamma 2.2}}]
+  [scene {:keys [iso exposure f-stop gamma]
+          :or {iso 100 exposure 1.0 f-stop 4 gamma 2.2}}]
   (update-in
    scene [:film "fleximage"]
    assoc
@@ -378,21 +386,25 @@
    :linear_gamma [:float gamma]))
 
 (defn camera
-  [scene & {:keys [type eye target up
-                   fov lens-radius focal-dist blades power distribution
-                   auto-focus? shutter-open shutter-close]
-            :or {type "perspective" fov 60
-                 lens-radius 0 blades 0 power 1 distribution :uniform
-                 shutter-open 0 shutter-close 0.041666
-                 eye [0 -10 0] target [0 0 0]}}]
+  [scene {:keys [type eye target up
+                 fov lens-radius focal-dist blades power distribution
+                 auto-focus? shutter-open shutter-close
+                 window]
+          :or {type "perspective" fov 60
+               lens-radius 0 blades 0 power 1 distribution :uniform
+               shutter-open 0 shutter-close 1.0
+               eye [0 -10 0] target [0 0 0]}}]
   (let [opts {:fov [:float fov]
               :shutteropen [:float shutter-open]
               :shutterclose [:float shutter-close]
               :lensradius [:float lens-radius]
               :blades [:int blades]
-              :power [:int power]
               :distribution [:string (name distribution)]
-              :float [:int power]
+              :power [:int power]
+              :screenwindow [:float-vec
+                             (or window
+                                 (let [a (get-in scene [:film "fleximage" :__aspect])]
+                                   [-1 1 (- a) a]))]
               :__lookat {:eye (g/vec3 eye) :target (g/vec3 target)
                          :up (if up
                                (g/vec3 up)
@@ -401,9 +413,7 @@
                (assoc opts
                  :focaldistance [:float focal-dist]
                  :autofocus [:bool false])
-               (if auto-focus?
-                 (assoc opts :autofocus [:bool true])
-                 opts))]
+               (assoc opts :autofocus [:bool true]))]
     (append-singleton scene :camera type opts)))
 
 (defn- make-transform-matrix
@@ -428,14 +438,14 @@
   {:__transform (if matrix matrix (make-transform-matrix tx))})
 
 (defn light-group
-  [scene id & {:keys [gain] :or {gain 1.0}}]
+  [scene id {:keys [gain] :or {gain 1.0}}]
   (append scene :light-groups id {:__gain [:float gain]}))
 
 (defn- light-common
   [scene {:keys [group color gain power efficacy importance tx material hidden?]
           :or {group "default" color [1.0 1.0 1.0]
                gain 1.0 efficacy 10.0 power 100.0 importance 1.0 hidden? false}}]
-  {:__parent group
+  {:__parent (name group)
    :__material (or material (when hidden? "__hidden__"))
    :L [:color color]
    :gain [:float (if group
@@ -446,11 +456,14 @@
    :importance [:float importance]})
 
 (defn area-light
-  [scene id & {:keys [samples mesh mesh-type p n size tx]
-               :or {samples 1 mesh-type :inline} :as opts}]
+  [scene id {:keys [samples mesh mesh-type p n size tx]
+             :or {samples 1 size 1.0 mesh-type :inline} :as opts}]
   (let [mesh (if mesh
                mesh
-               (g/as-mesh (pl/plane (or p [0 0 10]) (or n [0 0 -1])) {:size size}))]
+               (g/as-mesh (pl/plane (or p [0 0 0]) (or n [0 0 -1]))
+                          (if (sequential? size)
+                            {:width (first size) :height (second size)}
+                            {:size size})))]
     (append
      scene :lights id
      (merge
@@ -461,8 +474,8 @@
        :nsamples [:int samples]}))))
 
 (defn shape-disk
-  [scene id & {:keys [z radius inner-radius phi tx material]
-               :or {z 0 radius 1 inner-radius 0 phi 360}}]
+  [scene id {:keys [z radius inner-radius phi tx material]
+             :or {z 0 radius 1 inner-radius 0 phi 360}}]
   (append
    scene :geometry id
    (merge
@@ -476,7 +489,7 @@
      :phimax [:float phi]})))
 
 (defn ply-mesh
-  [scene id & {:keys [mesh path tx material smooth]}]
+  [scene id {:keys [mesh path tx material smooth]}]
   (append
    scene :geometry id
    (merge
@@ -489,7 +502,7 @@
      :smooth [:bool smooth]})))
 
 (defn stl-mesh
-  [scene id & {:keys [mesh path tx material]}]
+  [scene id {:keys [mesh path tx material]}]
   (append
    scene :geometry id
    (merge
@@ -504,30 +517,28 @@
   []
   (-> {}
       (renderer-sppm)
-      (sampler-sobol)
-      (integrator-sppm)
+      (sampler-sobol {})
+      (integrator-sppm {})
       (volume-integrator :multi)
-      (accelerator-qbvh)
-      (film)
-      (light-group "default")
-      (material-null "__hidden__")))
+      (accelerator-qbvh {})
+      (film {})
+      (light-group "default" {})
+      (material-null "__hidden__" {})))
 
 (comment
   (def lxs (-> (lux-scene)
-               (camera :eye [10 -2 10] :target [0 0 0] :up [0 0 1])
-               (film :width 640 :height 360 :display-interval 5 :halt-spp 50)
-               (volume "inside" :type :clear :absorb [0.972 0.8 0.7] :abs-depth 1 :ior 2.04)
-               (area-light "left" :p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20})
-               (area-light "top" :p [0 0 7] :size 6 :gain 0.5 :tx {:translate [0 4 0] :rx -45})
-               (area-light "right" :p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20})
-               (shape-disk "floor" :radius 20 :material "white")
-               ;;(shape-disk "d1" :radius 3 :inner-radius 2 :material "red" :tx {:rx -30})
-               ;;(shape-disk "d2" :radius 3 :inner-radius 2 :material "orange" :tx {:rx 30})
-               (stl-mesh "map" :material "orange-trans" :tx {:scale [5 3 1] :translate [0 0 1]} :mesh (g/extrude (r/rect -1 -1 2 2) {:depth 1 :scale 0.8}))
-               (material-matte "white" :diffuse [0.8 0.8 0.8])
-               (material-matte "red" :diffuse [1.0 0 0])
-               (material-matte "orange" :diffuse [1.0 0.3 0])
-               (material-matte-translucent "orange-trans" :interior "inside" :transmit [0.9 0.3 0.05] :reflect [0.3 0.3 0.3] :conserve? true)
+               (camera {:eye [10 -2 10] :target [0 0 0] :up [0 0 1]})
+               (film {:width 640 :height 360 :display-interval 5 :halt-spp 50})
+               (volume "inside" {:type :clear :absorb [0.972 0.8 0.7] :abs-depth 1 :ior 2.04})
+               (area-light "left" {:p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20}})
+               (area-light "top" {:p [0 0 7] :size 6 :gain 0.5 :tx {:translate [0 4 0] :rx -45}})
+               (area-light "right" {:p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20}})
+               (shape-disk "floor" {:radius 20 :material "white"})
+               (stl-mesh "map" {:material "orange-trans" :tx {:scale [5 3 1] :translate [0 0 1]} :mesh (g/extrude (r/rect -1 -1 2 2) {:depth 1 :scale 0.8})})
+               (material-matte "white" {:diffuse [0.8 0.8 0.8]})
+               (material-matte "red" {:diffuse [1.0 0 0]})
+               (material-matte "orange" {:diffuse [1.0 0.3 0]})
+               (material-matte-translucent "orange-trans" {:interior "inside" :transmit [0.9 0.3 0.05] :reflect [0.3 0.3 0.3] :conserve? true})
                ;;(serialize-scene "foo" false)
                ))
   )
