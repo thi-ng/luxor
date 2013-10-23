@@ -175,18 +175,18 @@
       :name [:string id]})))
 
 (defmethod emit :plymesh
-  [_ scene id {:keys [__mesh __basename path filename] :as opts}]
+  [_ scene id {:keys [__mesh __basename __export-path filename] :as opts}]
   (when __mesh
-    (let [path (or (second filename) (str __basename ".ply"))]
+    (let [path (or __export-path (second filename) (str __basename ".ply"))]
       (prn "exporting ply mesh: " id path)
       (with-open [out (io/output-stream path)]
         (mio/write-ply out __mesh))))
   (luxentity scene "Shape" "plymesh" opts))
 
 (defmethod emit :stlmesh
-  [_ scene id {:keys [__mesh __basename path filename] :as opts}]
+  [_ scene id {:keys [__mesh __basename __export-path filename] :as opts}]
   (when __mesh
-    (let [path (or (second filename) (str __basename ".stl"))]
+    (let [path (or __export-path (second filename) (str __basename ".stl"))]
       (prn "exporting stl mesh: " id path)
       (with-open [out (io/output-stream path)]
         (mio/write-stl out __mesh))))

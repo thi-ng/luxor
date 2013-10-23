@@ -328,17 +328,18 @@
 (defn film
   [scene {:keys [width height gamma
                  white red green blue
-                 suffix
+                 base-path
                  write-flm? restart-flm?
                  write-exr? exr-channels exr-imaging? exr-zbuf?
                  write-png? png-channels png-16bit?
                  write-tga? tga-channels
                  premultiply?
                  ldr-method
+                 outlier-rejects
                  write-interval display-interval
                  halt-spp halt-time halt-threshold
                  response]
-          :or {width 1280 height 720 gamma 2.2 suffix "out"
+          :or {width 1280 height 720 gamma 2.2 base-path "out"
                white [0.314275 0.329411] red [0.63 0.34] green [0.31 0.595] blue [0.155 0.07]
                write-flm? true restart-flm? true
                write-exr? false exr-channels "RGBA" exr-imaging? true exr-zbuf? true
@@ -346,6 +347,7 @@
                write-tga? false tga-channels "RGB"
                premultiply? false
                ldr-method "cut"
+               outlier-rejects 2
                write-interval 180 display-interval 12}}]
   (append-singleton
    scene :film "fleximage"
@@ -355,7 +357,7 @@
      :xresolution [:int width]
      :yresolution [:int height]
      :gamma [:float gamma]
-     :filename [:string suffix]
+     :filename [:string base-path]
      :colorspace_white [:float-vec white]
      :colorspace_red [:float-vec red]
      :colorspace_green [:float-vec green]
@@ -375,7 +377,8 @@
      :ldr_clamp_method [:string ldr-method]
      :writeinterval [:int write-interval]
      :flmwriteinterval [:int write-interval]
-     :displayinterval [:int display-interval]}
+     :displayinterval [:int display-interval]
+     :outlierrejection_k [:int outlier-rejects]}
     (when halt-spp {:haltspp [:int halt-spp]})
     (when halt-time {:halttime [:int halt-time]})
     (when halt-threshold {:haltthreshold [:int halt-threshold]})
@@ -475,7 +478,7 @@
    :importance [:float importance]})
 
 (defn area-light
-  [scene id {:keys [samples mesh mesh-type p n size tx]
+  [scene id {:keys [samples mesh mesh-type export-path p n size tx]
              :or {samples 1 size 1.0 mesh-type :inline} :as opts}]
   (let [mesh (if mesh
                mesh
@@ -489,7 +492,10 @@
       (when tx (transform-common scene tx))
       (light-common scene opts)
       {:__type :area-light
-       :__shape [(conf/mesh-types mesh-type) {:__mesh mesh :__basename (str "light-" id)}]
+       :__shape [(conf/mesh-types mesh-type)
+                 {:__mesh mesh
+                  :__export-path export-path
+                  :__basename (str "light-" id)}]
        :nsamples [:int samples]}))))
 
 (def light-types
@@ -520,7 +526,7 @@
      :phimax [:float phi]})))
 
 (defn ply-mesh
-  [scene id {:keys [mesh path tx material smooth]}]
+  [scene id {:keys [mesh path export-path tx material smooth]}]
   (append
    scene :geometry id
    (merge
@@ -528,12 +534,13 @@
     {:__type :plymesh
      :__material material
      :__mesh mesh
+     :__export-path (or export-path path)
      :name [:string id]
      :filename [:string (or path (str id ".ply"))]
      :smooth [:bool smooth]})))
 
 (defn stl-mesh
-  [scene id {:keys [mesh path tx material]}]
+  [scene id {:keys [mesh path export-path tx material]}]
   (append
    scene :geometry id
    (merge
@@ -541,6 +548,7 @@
     {:__type :stlmesh
      :__material material
      :__mesh mesh
+     :__export-path (or export-path path)
      :name [:string id]
      :filename [:string (or path (str id ".stl"))]})))
 
