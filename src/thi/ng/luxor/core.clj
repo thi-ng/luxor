@@ -4,6 +4,7 @@
    [thi.ng.luxor.compiler :as c]
    [thi.ng.luxor.color :as col]
    [thi.ng.luxor.presets :as presets]
+   [thi.ng.luxor.version :refer [version]]
    [thi.ng.common.math.core :as m]
    [thi.ng.geom.core :as g :refer [vec3 M44]]
    [thi.ng.geom.rect :as r]
@@ -33,7 +34,7 @@
 (defn- lx-header
   [path & comments]
   (format "# %s\n# generated %s by luxor v%s\n%s\n"
-          path (.toString (Date.)) conf/version
+          path (.toString (Date.)) version
           (if (seq comments)
             (reduce #(str % "# " %2 "\n") "#\n# Comments:\n" comments)
             "")))

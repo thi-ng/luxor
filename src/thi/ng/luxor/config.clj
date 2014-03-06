@@ -3,8 +3,6 @@
 ;; References:
 ;; http://www.luxrender.net/wiki/Scene_file_format_dev
 
-(def ^:const version "0.1.0-SNAPSHOT")
-
 (def ^:const mesh-types            {:inline :trimesh :ply :plymesh :stl :stlmesh})
 (def ^:const volume-types          #{:clear :homogenous :heterogenous})
 (def ^:const volume-integrators    #{:none :single :emission :multi})
