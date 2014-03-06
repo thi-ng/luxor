@@ -1,13 +1,6 @@
 # luxor
 
-A Clojure library designed to ... well, that part is up to you.
+Clojure based LXS scene graph compiler, generator &amp; mesh exporter
+for [Luxrender](http://luxrender.net).
 
-## Usage
-
-FIXME
-
-## License
-
-Copyright © 2013 FIXME
-
-Distributed under the Eclipse Public License, the same as Clojure.
+ALPHA quality, docs forthcoming.
