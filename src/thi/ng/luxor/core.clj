@@ -5,7 +5,7 @@
    [thi.ng.luxor.color :as col]
    [thi.ng.luxor.presets :as presets]
    [thi.ng.common.math.core :as m]
-   [thi.ng.geom.core :as g]
+   [thi.ng.geom.core :as g :refer [vec3 M44]]
    [thi.ng.geom.rect :as r]
    [thi.ng.geom.plane :as pl]
    [thi.ng.geom.mesh :as mesh]
@@ -408,8 +408,8 @@
                lens-radius 0 blades 0 power 1 distribution :uniform
                shutter-open 0 shutter-close 1.0
                eye [0 -10 0] target [0 0 0]}}]
-  (let [eye (g/vec3 eye)
-        target (g/vec3 target)
+  (let [eye (vec3 eye)
+        target (vec3 target)
         opts {:fov [:float fov]
               :shutteropen [:float shutter-open]
               :shutterclose [:float shutter-close]
@@ -423,14 +423,14 @@
                                    [-1 1 (- a) a]))]
               :__lookat {:eye eye :target target
                          :up (if up
-                               (g/vec3 up)
-                               (g/normalize (g/cross (g/sub eye target) g/V3_X)))}}
+                               (vec3 up)
+                               (g/normalize (g/cross (g/- eye target) g/V3X)))}}
         opts (cond
               focal-dist  (assoc opts
                            :focaldistance [:float focal-dist]
                            :autofocus [:bool false])
               focal-point (assoc opts
-                            :focaldistance [:float (g/dist eye (g/vec3 focal-point))]
+                            :focaldistance [:float (g/dist eye (vec3 focal-point))]
                             :autofocus [:bool false])
               :default    (assoc opts :autofocus [:bool true]))]
     (append-singleton scene :camera type opts)))
@@ -438,8 +438,8 @@
 (defn- make-transform-matrix
   [{:keys [scale rx ry rz axis theta translate] :or {rx 0 ry 0 rz 0} :as tx}]
   (let [mat (if translate
-              (g/translate g/IDENTITY44 (g/vec3 translate))
-              g/IDENTITY44)
+              (g/translate M44 (vec3 translate))
+              M44)
         mat (if axis
               (g/rotate-around-axis mat axis theta)
               (if (some (complement zero?) [rx ry rz])
