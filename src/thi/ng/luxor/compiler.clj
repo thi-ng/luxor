@@ -42,11 +42,13 @@
 
 (defn luxattrib
   [scene id type {:keys [__transform __material]} body]
-  (let [sep (format "# -------- %s: %s --------\n" type (name id))
+  (let [sep-start (format "# -------- %s-start: %s --------\n" type (name id))
+        sep-end (format "# -------- %s-end: %s --------\n" type (name id))
         inject (str
                 (when __transform (luxtransform __transform))
                 (when __material (material-ref scene __material)))]
-    (format "%sAttributeBegin\n%s%sAttributeEnd\n%s\n" sep inject body sep)))
+    (format "%sAttributeBegin\n%s%sAttributeEnd\n%s\n"
+            sep-start inject body sep-end)))
 
 (defmulti emit (fn [type & _] type))
 
@@ -136,12 +138,15 @@
      (emit stype scene (str id "-mesh") sopts))))
 
 (defmethod emit :light
-  [_ scene id opts]
-  (luxattrib
-   scene id "light" opts
-   (str
-    (when-let [g (:__parent opts)] (format "LightGroup \"%s\"\n" g))
-    (emit (:__type opts) scene id opts))))
+  [_ scene id {group :__parent :as opts}]
+  (let [opts (if group
+               (update-in opts [:gain 1] * (get-in scene [:light-groups group :__gain] 1.0))
+               opts)]
+    (luxattrib
+     scene id "light" opts
+     (str
+      (when group (format "LightGroup \"%s\"\n" group))
+      (emit (:__type opts) scene id opts)))))
 
 (defmethod emit :camera
   [_ scene id opts]

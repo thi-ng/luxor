@@ -457,7 +457,7 @@
 
 (defn light-group
   [scene id {:keys [gain] :or {gain 1.0}}]
-  (append scene :light-groups id {:__gain gain}))
+  (append scene :light-groups (name id) {:__gain gain}))
 
 (defn light-groups
   [scene groups]
@@ -470,9 +470,7 @@
   {:__parent (name group)
    :__material (or material (when hidden? "__hidden__"))
    :L [:color color]
-   :gain [:float (if group
-                   (* (get-in scene [:light-groups group :__gain] 1.0) gain)
-                   gain)]
+   :gain [:float gain]
    :power [:float power]
    :efficacy [:float efficacy]
    :importance [:float importance]})
