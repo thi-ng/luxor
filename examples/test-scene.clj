@@ -1,47 +1,3 @@
-# thi.ng/luxor
-
-![Luxor test scene](examples/test-scene.jpg)
-
-This project is part of the [thi.ng](https://github.com/thi-ng/)
-collection of Clojure & Clojurescript libraries.
-
-Luxor is a Clojure based LXS scene graph compiler, generator & mesh
-exporter for [Luxrender](http://luxrender.net) (v1.3+), an
-open source, physically based and unbiased rendering engine.
-
-## Status
-
-ALPHA quality, docs forthcoming. Note, only the most commonly used Lux
-functionality is implemented thus far, but more feature support is
-planned. All Lux entity generators use the same default values as
-specified in the official LXS syntax reference:
-
-http://www.luxrender.net/wiki/Scene_file_format_dev
-
-## Dependencies
-
-- [thi.ng/common](https://github.com/thi-ng/common/)
-- [thi.ng/geom](https://github.com/thi-ng/geom/)
-
-## Example usage
-
-Leiningen coordinates:
-
-```clj
-[thi.ng/luxor "0.2.0"]
-```
-
-The code below is responsible for the example image above. To run,
-just clone this repo, launch a REPL and load example:
-
-```clj
-(load-file "examples/test-scene.clj")
-```
-
-The resulting LXS scene file and meshes are saved in the project root
-dir. Double click the LXS file to launch in Luxrender.
-
-```clj
 (require
  '[thi.ng.luxor.core :refer :all]
  '[thi.ng.geom.core :as g]
@@ -51,6 +7,9 @@ dir. Double click the LXS file to launch in Luxrender.
  '[thi.ng.geom.gmesh :as gm]
  '[thi.ng.common.math.core :as m])
 
+;; see LXS syntax ref for description of these entities & options
+;; http://www.luxrender.net/wiki/Scene_file_format_dev
+
 (->
  ;; empty default lux scene
  (lux-scene)
@@ -59,7 +18,7 @@ dir. Double click the LXS file to launch in Luxrender.
  (renderer-sampler)
  (sampler-ld {})
  (integrator-bidir {})
- 
+
  ;; camera setup
  (camera {:eye [5 -5 5] :target [0 0 0] :up [0 0 1]})
  ;; film size, color response profile, progress updates, stop condition
@@ -72,7 +31,7 @@ dir. Double click the LXS file to launch in Luxrender.
 
  ;; define medium with milky consistency (used for material below)
  (volume
-  :inside {:type :clear :absorb [0.972 0.8 0.7] :abs-depth 0.05 :ior 2.04})
+  :inside {:type :clear :absorb [0.97 0.8 0.7] :abs-depth 0.05 :ior 2.04})
  ;; semi-translucent material w/ above medium as interior
  (material-matte-translucent
   :milk {:interior :inside :reflect [0.3 0.3 0.3] :transmit [0.8 0.7 0.6]})
@@ -95,7 +54,6 @@ dir. Double click the LXS file to launch in Luxrender.
  (ply-mesh
   :room {:material :white :tx {:translate [0 0 8] :scale 16 :rz 45}
          :mesh (-> (a/aabb 1) (g/center) (g/as-mesh))})
-
  ;; 16x16 grid of boxes
  ;; takes a single rect, subdivides it into 256 smaller rects
  ;; then extrudes each individually as walled mesh and re-combines into single
@@ -104,20 +62,20 @@ dir. Double click the LXS file to launch in Luxrender.
  (ply-mesh
   :grid {:material :milk :tx {:translate [0 0 0.1] :scale [2 2 1]}
          :mesh (->> (-> (r/rect 5) (g/center) (g/subdivide {:num 16}))
-                    (map #(-> %
-                              (g/scale-size 0.9)
-                              (g/as-polygon)
-                              (g/extrude-shell
-                               (let [d (-> %
-                                           (g/centroid)
-                                           (g/mag)
-                                           (m/map-interval [0 3.75] [0 m/HALF_PI])
-                                           (Math/cos))]
-                                 {:depth (* 2 d)
-                                  :wall (- 0.15 (* d 0.125))}))
-                              (g/faces)))
+                    (map
+                     #(-> %
+                          (g/scale-size 0.9)
+                          (g/as-polygon)
+                          (g/extrude-shell
+                           (let [d (-> %
+                                       (g/centroid)
+                                       (g/mag)
+                                       (m/map-interval [0 3.75] [0 m/HALF_PI])
+                                       (Math/cos))]
+                             {:depth (* 2 d)
+                              :wall (- 0.15 (* d 0.125))}))
+                          (g/faces)))
                     (reduce gm/into-mesh (gm/gmesh)))})
 
  ;; finally output LXS scene file & meshes
  (serialize-scene "luxor-test" false))
-```
