@@ -1,15 +1,14 @@
 (ns thi.ng.luxor.core
   (:require
    [thi.ng.luxor.config :as conf]
-   [thi.ng.luxor.compiler :as c]
+   [thi.ng.luxor.compiler :refer [luxvalues-typed]]
    [thi.ng.luxor.color :as col]
    [thi.ng.luxor.presets :as presets]
    [thi.ng.luxor.version :refer [version]]
    [thi.ng.common.math.core :as m]
    [thi.ng.geom.core :as g :refer [vec3 M44]]
-   [thi.ng.geom.rect :as r]
    [thi.ng.geom.plane :as pl]
-   [thi.ng.geom.mesh :as mesh]
+   [thi.ng.geom.gmesh :as gmesh]
    [thi.ng.geom.meshio :as mio]
    [clojure.java.io :as io])
   (:import
@@ -113,7 +112,7 @@
      (let [scene* (reduce
                    (fn [s [k type]]
                      (if-let [ents (k scene)]
-                       (assoc s k (c/luxvalues-typed scene type ents))
+                       (assoc s k (luxvalues-typed scene type ents))
                        s))
                    (select-keys scene [:comments :includes])
                    {:renderer :renderer
@@ -428,8 +427,8 @@
                                (g/normalize (g/cross (g/- eye target) g/V3X)))}}
         opts (cond
               focal-dist  (assoc opts
-                           :focaldistance [:float focal-dist]
-                           :autofocus [:bool false])
+                            :focaldistance [:float focal-dist]
+                            :autofocus [:bool false])
               focal-point (assoc opts
                             :focaldistance [:float (g/dist eye (vec3 focal-point))]
                             :autofocus [:bool false])
@@ -481,12 +480,13 @@
              :or {samples 1 size 1.0 mesh-type :inline} :as opts}]
   (let [mesh (if mesh
                mesh
-               (g/as-mesh (pl/plane (or p [0 0 0]) (or n [0 0 -1]))
-                          (if (sequential? size)
-                            {:width (first size) :height (second size)}
-                            {:size size})))]
+               (g/as-mesh
+                (pl/plane-with-p (g/vec3 (or p [0 0 0])) (g/vec3 (or n [0 0 -1])))
+                (if (sequential? size)
+                  {:width (first size) :height (second size)}
+                  {:size size})))]
     (append
-     scene :lights id
+     scene :lights (name id)
      (merge
       (when tx (transform-common scene tx))
       (light-common scene opts)
@@ -513,7 +513,7 @@
   [scene id {:keys [z radius inner-radius phi tx material]
              :or {z 0 radius 1 inner-radius 0 phi 360}}]
   (append
-   scene :geometry id
+   scene :geometry (name id)
    (merge
     (when tx (transform-common scene tx))
     {:__type :disk
@@ -527,7 +527,7 @@
 (defn ply-mesh
   [scene id {:keys [mesh path export-path tx material smooth]}]
   (append
-   scene :geometry id
+   scene :geometry (name id)
    (merge
     (when tx (transform-common scene tx))
     {:__type :plymesh
@@ -535,13 +535,13 @@
      :__mesh mesh
      :__export-path (or export-path path)
      :name [:string id]
-     :filename [:string (or path (str id ".ply"))]
+     :filename [:string (or path (str (name id) ".ply"))]
      :smooth [:bool smooth]})))
 
 (defn stl-mesh
   [scene id {:keys [mesh path export-path tx material]}]
   (append
-   scene :geometry id
+   scene :geometry (name id)
    (merge
     (when tx (transform-common scene tx))
     {:__type :stlmesh
@@ -549,7 +549,7 @@
      :__mesh mesh
      :__export-path (or export-path path)
      :name [:string id]
-     :filename [:string (or path (str id ".stl"))]})))
+     :filename [:string (or path (str (name id) ".stl"))]})))
 
 (defn lux-scene
   []
@@ -564,20 +564,3 @@
       (light-group "default" {})
       (material-null "__hidden__" {})))
 
-(comment
-  (def lxs (-> (lux-scene)
-               (camera {:eye [10 -2 10] :target [0 0 0] :up [0 0 1]})
-               (film {:width 640 :height 360 :display-interval 5 :halt-spp 50})
-               (volume "inside" {:type :clear :absorb [0.972 0.8 0.7] :abs-depth 1 :ior 2.04})
-               (area-light "left" {:p [0 0 5] :size 1 :gain 1 :tx {:translate [-5 0 0] :ry -20}})
-               (area-light "top" {:p [0 0 7] :size 6 :gain 0.5 :tx {:translate [0 4 0] :rx -45}})
-               (area-light "right" {:p [0 0 5] :size 1 :gain 1 :tx {:translate [5 0 0] :ry 20}})
-               (shape-disk "floor" {:radius 20 :material "white"})
-               (stl-mesh "map" {:material "orange-trans" :tx {:scale [5 3 1] :translate [0 0 1]} :mesh (g/extrude (r/rect -1 -1 2 2) {:depth 1 :scale 0.8})})
-               (material-matte "white" {:diffuse [0.8 0.8 0.8]})
-               (material-matte "red" {:diffuse [1.0 0 0]})
-               (material-matte "orange" {:diffuse [1.0 0.3 0]})
-               (material-matte-translucent "orange-trans" {:interior "inside" :transmit [0.9 0.3 0.05] :reflect [0.3 0.3 0.3] :conserve? true})
-               ;;(serialize-scene "foo" false)
-               ))
-  )
