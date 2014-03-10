@@ -2,6 +2,7 @@
   (:require
    [thi.ng.luxor.config :as conf]
    [thi.ng.luxor.color :as col]
+   [thi.ng.geom.gmesh :as gm]
    [thi.ng.geom.meshio :as mio]
    [clojure.java.io :as io]))
 
@@ -172,7 +173,9 @@
   [_ scene id {:keys [__mesh]}]
   (let [verts (vec (keys (:vertices __mesh)))
         vidx (zipmap verts (range))
-        indices (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)]) (:faces __mesh))]
+        indices (->> (:faces __mesh)
+                    (mapcat gm/tessellate-face1)
+                    (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)])))]
     (luxentity
      scene "Shape" "trianglemesh"
      {:indices [:int-vec (vec indices)]
