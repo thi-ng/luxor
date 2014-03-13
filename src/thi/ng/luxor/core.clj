@@ -519,9 +519,10 @@
                 (pl/plane-with-p (g/vec3 (or p [0 0 0])) (g/vec3 (or n [0 0 -1])))
                 (if (sequential? size)
                   {:width (first size) :height (second size)}
-                  {:size size})))]
+                  {:size size})))
+        id (name id)]
     (append
-     scene :lights (name id)
+     scene :lights id
      (merge
       (when tx (transform-common scene tx))
       (light-common scene opts)
