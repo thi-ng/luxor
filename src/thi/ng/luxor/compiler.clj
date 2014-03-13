@@ -138,6 +138,10 @@
      (luxentity scene "AreaLightSource" "area" opts)
      (emit stype scene (str id "-mesh") sopts))))
 
+(defmethod emit :spot-light
+  [_ scene id opts]
+  (luxentity scene "LightSource" "spot" opts))
+
 (defmethod emit :light
   [_ scene id {group :__parent :as opts}]
   (let [opts (if group

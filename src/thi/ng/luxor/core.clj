@@ -25,7 +25,8 @@
   ([pred x] (if x (pred x) true))
   ([test pred x] (if (test x) (pred x) true)))
 
-(defn convert-angle [theta] (if conf/*degrees* (m/radians theta) theta))
+(defn ->radians [theta] (if conf/*degrees* (m/radians theta) theta))
+(defn ->degrees [theta] (if conf/*degrees* theta (m/degrees theta)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; serialization
@@ -142,6 +143,12 @@
      (-> (if singleton? (dissoc scene group) scene)
          (assoc-in [group id] (or opts {})))))
 
+(defn- append*
+  [scene group xs]
+  (reduce
+   (fn [scene [id opts]] (append scene group id opts))
+   scene xs))
+
 (defn- append-singleton
   [scene group id opts] (append scene group id opts true))
 
@@ -171,37 +178,65 @@
     (material-common opts)
     {:type [:string "null"]})))
 
-(defn material-matte
-  [scene id {:keys [diffuse diffuse-hsb sigma]
-             :or {diffuse [1.0 1.0 1.0] sigma 0} :as opts}]
-  {:pre [(kw-or-str? id)
-         (color? diffuse) (optional color? diffuse-hsb)
-         (number? sigma)]}
+(defn material-mix
+  [scene id m1 m2 blend]
   (append
    scene :materials (name id)
-   (merge
-    (material-common opts)
-    {:type [:string "matte"]
-     :Kd [:color (if diffuse-hsb (col/hsb->rgb diffuse-hsb) diffuse)]
-     :sigma [:float sigma]})))
+   {:type [:string "mix"]
+    :namedmaterial1 [:string (name m1)]
+    :namedmaterial2 [:string (name m2)]
+    :amount [:float blend]}))
+
+(defn- material-id
+  [id alpha]
+  (if (< alpha 1.0) (str "__" (name id)) (name id)))
+
+(defn- inject-alpha-mat
+  [scene id alpha]
+  (if (< alpha 1.0)
+    (material-mix
+     scene (name id) "__hidden__" (material-id id alpha) alpha)
+    scene))
+
+(defn material-matte
+  [scene id {:keys [diffuse diffuse-hsb sigma alpha]
+             :or {diffuse [1.0 1.0 1.0] sigma 0 alpha 1.0} :as opts}]
+  {:pre [(kw-or-str? id)
+         (color? diffuse) (optional color? diffuse-hsb)
+         (number? sigma) (number? alpha)]}
+  (-> scene
+      (append
+       :materials
+       (material-id id alpha)
+       (merge
+        (material-common opts)
+        {:type [:string "matte"]
+         :Kd [:color (if diffuse-hsb (col/hsb->rgb diffuse-hsb) diffuse)]
+         :sigma [:float sigma]}))
+      (inject-alpha-mat id alpha)))
 
 (defn material-matte-translucent
-  [scene id {:keys [reflect reflect-hsb transmit transmit-hsb sigma conserve?]
-             :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65] sigma 0 conserve? true}
+  [scene id {:keys [reflect reflect-hsb transmit transmit-hsb
+                    sigma alpha conserve?]
+             :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65]
+                  sigma 0 alpha 1.0 conserve? true}
              :as opts}]
   {:pre [(kw-or-str? id)
          (color? reflect) (optional color? reflect-hsb)
          (color? transmit) (optional color? transmit-hsb)
          (number? sigma)]}
-  (append
-   scene :materials (name id)
-   (merge
-    (material-common opts)
-    {:type [:string "mattetranslucent"]
-     :Kr [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
-     :Kt [:color (if transmit-hsb (col/hsb->rgb transmit-hsb) transmit)]
-     :sigma [:float sigma]
-     :energyconserving [:bool conserve?]})))
+  (-> scene
+      (append
+       :materials
+       (material-id id alpha)
+       (merge
+        (material-common opts)
+        {:type [:string "mattetranslucent"]
+         :Kr [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
+         :Kt [:color (if transmit-hsb (col/hsb->rgb transmit-hsb) transmit)]
+         :sigma [:float sigma]
+         :energyconserving [:bool conserve?]}))
+      (inject-alpha-mat id alpha)))
 
 (defn volume
   [scene id {:keys [type ior absorb absorb-hsb abs-scale abs-depth]
@@ -444,9 +479,9 @@
               (g/rotate-around-axis mat axis theta)
               (if (some (complement zero?) [rx ry rz])
                 (-> mat
-                    (g/rotate-x (convert-angle rx))
-                    (g/rotate-y (convert-angle ry))
-                    (g/rotate-z (convert-angle rz)))
+                    (g/rotate-x (->radians rx))
+                    (g/rotate-y (->radians ry))
+                    (g/rotate-z (->radians rz)))
                 mat))
         mat (if scale (g/scale mat scale) mat)]
     (vals (g/transpose mat))))
@@ -466,7 +501,7 @@
 (defn- light-common
   [scene {:keys [group color gain power efficacy importance tx material hidden?]
           :or {group "default" color [1.0 1.0 1.0]
-               gain 1.0 efficacy 10.0 power 100.0 importance 1.0 hidden? false}}]
+               gain 1.0 efficacy 17.0 power 100.0 importance 1.0 hidden? false}}]
   {:__parent (name group)
    :__material (or material (when hidden? "__hidden__"))
    :L [:color color]
@@ -497,8 +532,23 @@
                   :__basename (str "light-" id)}]
        :nsamples [:int samples]}))))
 
+(defn spot-light
+  [scene id {:keys [from to cone-angle cone-delta tx]
+             :or {cone-angle 30 cone-delta 5} :as opts}]
+  (append
+   scene :lights (name id)
+   (merge
+    (when tx (transform-common scene tx))
+    (light-common scene opts)
+    {:__type :spot-light
+     :from [:point-vec [(or from [0 0 1])]]
+     :to [:point-vec [(or from [0 0 0])]]
+     :coneangle [:float (->degrees cone-angle)]
+     :conedeltaangle [:float (->degrees cone-delta)]})))
+
 (def light-types
-  {:area area-light})
+  {:area area-light
+   :spot spot-light})
 
 (defn lights
   [scene lspecs]
@@ -563,4 +613,3 @@
       (film {})
       (light-group "default" {})
       (material-null "__hidden__" {})))
-
