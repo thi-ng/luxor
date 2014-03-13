@@ -534,15 +534,16 @@
 
 (defn spot-light
   [scene id {:keys [from to cone-angle cone-delta tx]
-             :or {cone-angle 30 cone-delta 5} :as opts}]
+             :or {cone-angle 30 cone-delta 5 from [0 0 1] to [0 0 0]}
+             :as opts}]
   (append
    scene :lights (name id)
    (merge
     (when tx (transform-common scene tx))
     (light-common scene opts)
     {:__type :spot-light
-     :from [:point-vec [(or from [0 0 1])]]
-     :to [:point-vec [(or from [0 0 0])]]
+     :from [:point-vec [from]]
+     :to [:point-vec [to]]
      :coneangle [:float (->degrees cone-angle)]
      :conedeltaangle [:float (->degrees cone-delta)]})))
 
