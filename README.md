@@ -18,6 +18,10 @@ specified in the official LXS syntax reference:
 
 http://www.luxrender.net/wiki/Scene_file_format_dev
 
+Since Luxrender has *a lot* of options for its various scene
+components, it is highly recommended to study the above reference in
+order to customize defaults and obtain high quality renders.
+
 ## Dependencies
 
 - [thi.ng/common](https://github.com/thi-ng/common/)
