@@ -5,8 +5,7 @@
  '[thi.ng.geom.rect :as r]
  '[thi.ng.geom.polygon :as p]
  '[thi.ng.geom.gmesh :as gm]
- '[thi.ng.common.math.core :as m]
- '[clojure.java.io :as io])
+ '[thi.ng.common.math.core :as m])
 
 ;; see LXS syntax ref for description of these entities & options
 ;; http://www.luxrender.net/wiki/Scene_file_format_dev
@@ -14,6 +13,8 @@
 (->
  ;; empty default lux scene
  (lux-scene)
+
+ ;; configure scene to collect meshes (needed for ZIP export)
  (configure-meshes-as-byte-arrays)
  
  ;; customize sampler & renderer
@@ -77,7 +78,9 @@
  ;; finally serialize & output LXS scene files and meshes
  ;; the `false` arg means materials, objects and volumes
  ;; are included in the main scene file and not written as separate files
- (serialize-scene "luxor-test" true)
+ (serialize-scene "luxor-test" false)
+ ;; export scene files
  (export-scene)
- (export-archived-scene "luxor-test.zip")
- )
+ ;; additionally export all scene components as zip
+ ;; (useful for when creating animations, each frame exported as archive)
+ (export-archived-scene "luxor-test.zip"))

@@ -43,7 +43,8 @@ just clone this repo, launch a REPL and load example:
 ```
 
 The resulting LXS scene file and meshes are saved in the project root
-dir. Double click the LXS file to launch in Luxrender.
+dir (additionally all scene components are saved as ZIP file too).
+Double click the LXS file to launch in Luxrender.
 
 ```clj
 (require
@@ -62,6 +63,9 @@ dir. Double click the LXS file to launch in Luxrender.
  ;; empty default lux scene
  (lux-scene)
 
+ ;; configure scene to collect meshes (needed for ZIP export)
+ (configure-meshes-as-byte-arrays)
+ 
  ;; customize sampler & renderer
  (renderer-sampler)
  (sampler-ld {})
@@ -123,6 +127,10 @@ dir. Double click the LXS file to launch in Luxrender.
  ;; finally serialize & output LXS scene files and meshes
  ;; the `false` arg means materials, objects and volumes
  ;; are included in the main scene file and not written as separate files
- (serialize-scene "luxor-test" true)
- (export-scene))
+ (serialize-scene "luxor-test" false)
+ ;; export scene files
+ (export-scene)
+ ;; additionally export all scene components as zip
+ ;; (useful for when creating animations, each frame exported as archive)
+ (export-archived-scene "luxor-test.zip"))
 ```
