@@ -466,30 +466,28 @@
     :innerradius [:float inner-radius]
     :phimax [:float phi]}))
 
-(defn ply-mesh
-  [scene id {:keys [mesh path export-path tx material smooth]}]
+(defn- mesh-common
+  [scene id ext base {:keys [mesh path export-path tx material]}]
   (append
    scene :geometry id
-   {:__transform tx
-    :__type :plymesh
-    :__material material
-    :__mesh mesh
-    :__export-path (or export-path path)
-    :name [:string (name id)]
-    :filename [:string (or path (str (name id) ".ply"))]
-    :smooth [:bool smooth]}))
+   (merge
+    base
+    {:__transform tx
+     :__type :plymesh
+     :__material material
+     :__mesh mesh
+     :__export-path (or export-path path)
+     :name [:string (name id)]
+     :filename [:string (or path (str (name id) ext))]})))
+
+(defn ply-mesh
+  [scene id {:keys [smooth] :as opts}]
+  (mesh-common
+   scene id ".ply" {:__type :plymesh :smooth [:bool smooth]} opts))
 
 (defn stl-mesh
-  [scene id {:keys [mesh path export-path tx material]}]
-  (append
-   scene :geometry id
-   {:__transform tx
-    :__type :stlmesh
-    :__material material
-    :__mesh mesh
-    :__export-path (or export-path path)
-    :name [:string (name id)]
-    :filename [:string (or path (str (name id) ".stl"))]}))
+  [scene id opts]
+  (mesh-common scene id ".stl" {:__type :stlmesh} opts))
 
 (defn configure-mesh-streamer
   [scene f]
