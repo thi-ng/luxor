@@ -12,7 +12,8 @@
    [thi.ng.geom.meshio :as mio]
    [clojure.java.io :as io])
   (:import
-   [java.io File Writer OutputStreamWriter StringWriter]
+   [java.io File ByteArrayOutputStream OutputStream]
+   [java.util.zip ZipOutputStream ZipEntry]
    [java.util Date]))
 
 (defn kw-or-num? [x] (or (keyword? x) (number? x)))
@@ -27,6 +28,21 @@
 
 (defn ->radians [theta] (if conf/*degrees* (m/radians theta) theta))
 (defn ->degrees [theta] (if conf/*degrees* theta (m/degrees theta)))
+
+(defn file-mesh-stream
+  [id path]
+  (println "writing:" path)
+  (io/output-stream path))
+
+(defprotocol PAsByteArray
+  (as-byte-array [_]))
+
+(extend-protocol PAsByteArray
+  String
+  (as-byte-array [_] (.getBytes _ "UTF-8"))
+
+  ByteArrayOutputStream
+  (as-byte-array [_] (.toByteArray _)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; serialization
@@ -106,7 +122,10 @@
                     :materials :material
                     :volumes :volume
                     :geometry :shape})
-           serialized {:lxs (serialize-lxs scene* base-path separate?)}]
+           serialized {:lxs (serialize-lxs scene* base-path separate?)}
+           serialized (if-let [collector (get-in scene [:__config :mesh-collector])]
+                        (merge serialized (collector scene))
+                        serialized)]
        (if separate?
          (merge
           serialized
@@ -120,12 +139,25 @@
      (export-scene
       serialized-map
       (fn [_ path body]
-        (println "writing:" path)
+        (println "exporting:" path)
         (spit path body))))
   ([serialized-map f]
      (doseq [[id {:keys [path body]}] serialized-map]
        (when (and path body)
-         (f id path body)))))
+         (f id path body)))
+     serialized-map))
+
+(defn export-archived-scene
+  [serialized-map out]
+  (with-open [out (io/output-stream out), zip (ZipOutputStream. out)]
+    (.setMethod zip ZipOutputStream/DEFLATED)
+    (doseq [[id {:keys [path body]}] serialized-map]
+      (when (and path body)
+        (let [buf (as-byte-array body)]
+          (doto zip
+            (.putNextEntry (ZipEntry. path))
+            (.write buf 0 (alength buf)))))))
+  serialized-map)
 
 (defn- make-transform-matrix
   [{:keys [scale rx ry rz axis theta translate] :or {rx 0 ry 0 rz 0} :as tx}]
@@ -509,7 +541,8 @@
   (let [mesh (if mesh
                mesh
                (g/as-mesh
-                (pl/plane-with-p (g/vec3 (or p [0 0 0])) (g/vec3 (or n [0 0 -1])))
+                (pl/plane-with-p
+                 (g/vec3 (or p [0 0 0])) (g/vec3 (or n [0 0 -1])))
                 (if (sequential? size)
                   {:width (first size) :height (second size)}
                   {:size size})))]
@@ -594,7 +627,7 @@
 
 (defn lux-scene
   []
-  (-> {}
+  (-> {:__config {:mesh-streamer file-mesh-stream}}
       (renderer-sppm)
       (sampler-sobol {})
       (integrator-sppm {})
@@ -604,3 +637,23 @@
       (film {})
       (light-group "default" {})
       (material-null "__hidden__")))
+
+(defn configure-mesh-streamer
+  [scene f]
+  (assoc-in scene [:__config :mesh-streamer] f))
+
+(defn configure-mesh-collector
+  [scene f]
+  (assoc-in scene [:__config :mesh-collector] f))
+
+(defn configure-meshes-as-byte-arrays
+  [scene]
+  (let [state (atom {})]
+    (-> scene
+        (configure-mesh-streamer
+         (fn [id path]
+           (let [out (ByteArrayOutputStream. 0x100000)]
+             (swap! state assoc id {:path path :body out})
+             out)))
+        (configure-mesh-collector
+         (fn [_] @state)))))
