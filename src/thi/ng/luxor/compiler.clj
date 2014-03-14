@@ -190,7 +190,6 @@
   [_ scene id {:keys [__mesh __basename __export-path filename] :as opts}]
   (when __mesh
     (let [path (or __export-path (second filename) (str __basename ".ply"))]
-      (prn "exporting ply mesh: " id path)
       (with-open [out (io/output-stream path)]
         (mio/write-ply out __mesh))))
   (luxentity scene "Shape" "plymesh" opts))
@@ -199,7 +198,6 @@
   [_ scene id {:keys [__mesh __basename __export-path filename] :as opts}]
   (when __mesh
     (let [path (or __export-path (second filename) (str __basename ".stl"))]
-      (prn "exporting stl mesh: " id path)
       (with-open [out (io/output-stream path)]
         (mio/write-stl out __mesh))))
   (luxentity scene "Shape" "stlmesh" opts))
