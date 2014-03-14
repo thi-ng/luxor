@@ -39,7 +39,7 @@
                     (g/rotate-z (->radians rz)))
                 mat))
         mat (if scale (g/scale mat scale) mat)]
-    (vals (g/transpose mat))))
+    (vals (g/transpose mat)))) ;; FIXME update once M44 is deftype
 
 (defn- transform-common
   [scene {:keys [matrix] :as tx}]
@@ -77,30 +77,15 @@
   [scene & paths]
   (update-in scene [:includes :partials] (fnil into []) paths))
 
-(defn- material-common
-  [{:keys [interior exterior]}]
-  {:__interior interior
-   :__exterior exterior})
-
-(defn material-null
-  [scene id]
-  {:pre [(kw-or-str? id)]}
-  (append
-   scene :materials id
-   {:type [:string "null"]}))
-
-(defn material-mix
-  [scene id m1 m2 blend]
-  (append
-   scene :materials id
-   {:type [:string "mix"]
-    :namedmaterial1 [:string (name m1)]
-    :namedmaterial2 [:string (name m2)]
-    :amount [:float blend]}))
+(defn resolve-ior
+  [ior]
+  (if (keyword ior) (presets/ior-presets ior) ior))
 
 (defn- material-id
   [id alpha]
   (if (< alpha 1.0) (str "__" (name id)) (name id)))
+
+(declare material-mix)
 
 (defn- inject-alpha-mat
   [scene id alpha]
@@ -109,22 +94,47 @@
      scene id "__hidden__" (material-id id alpha) alpha)
     scene))
 
-(defn material-matte
-  [scene id {:keys [diffuse diffuse-hsb sigma alpha]
-             :or {diffuse [1.0 1.0 1.0] sigma 0 alpha 1.0} :as opts}]
-  {:pre [(kw-or-str? id)
-         (color? diffuse) (optional color? diffuse-hsb)
-         (number? sigma) (number? alpha)]}
+(defn- material-common
+  [scene id type base {:keys [alpha interior exterior] :or {alpha 1.0}}]
+  {:pre [(number? alpha)]}
   (-> scene
       (append
        :materials
        (material-id id alpha)
-       (merge
-        (material-common opts)
-        {:type [:string "matte"]
-         :Kd [:color (if diffuse-hsb (col/hsb->rgb diffuse-hsb) diffuse)]
-         :sigma [:float sigma]}))
+       (merge base
+              {:__interior interior
+               :__exterior exterior
+               :type [:string type]}))
       (inject-alpha-mat id alpha)))
+
+(defn material-null
+  [scene id]
+  {:pre [(kw-or-str? id)]}
+  (append scene :materials id {:type [:string "null"]}))
+
+(defn material-mix
+  ([scene id m1 m2]
+     (material-mix scene id m1 m2 0.5))
+  ([scene id m1 m2 blend]
+     (append
+      scene :materials id
+      {:type [:string "mix"]
+       :namedmaterial1 [:string (name m1)]
+       :namedmaterial2 [:string (name m2)]
+       :amount [:float blend]})))
+
+(defn material-matte
+  [scene id {:keys [diffuse diffuse-hsb sigma]
+             :or {diffuse [1.0 1.0 1.0] sigma 0}
+             :as opts}]
+  {:pre [(kw-or-str? id)
+         (color? diffuse) (optional color? diffuse-hsb)
+         (number? sigma)]}
+  (material-common
+   scene id "matte"
+   {:Kd [:color (if diffuse-hsb (col/hsb->rgb diffuse-hsb) diffuse)]
+    :sigma [:float sigma]}
+   opts))
 
 (defn material-matte-translucent
   [scene id {:keys [reflect reflect-hsb transmit transmit-hsb
@@ -136,18 +146,27 @@
          (color? reflect) (optional color? reflect-hsb)
          (color? transmit) (optional color? transmit-hsb)
          (number? sigma)]}
-  (-> scene
-      (append
-       :materials
-       (material-id id alpha)
-       (merge
-        (material-common opts)
-        {:type [:string "mattetranslucent"]
-         :Kr [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
-         :Kt [:color (if transmit-hsb (col/hsb->rgb transmit-hsb) transmit)]
-         :sigma [:float sigma]
-         :energyconserving [:bool conserve?]}))
-      (inject-alpha-mat id alpha)))
+  (material-common
+   scene id "mattetranslucent"
+   {:Kr [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
+    :Kt [:color (if transmit-hsb (col/hsb->rgb transmit-hsb) transmit)]
+    :sigma [:float sigma]
+    :energyconserving [:bool conserve?]}
+   opts))
+
+(defn material-mirror
+  [scene id {:keys [reflect reflect-hsb film film-ior]
+             :or {reflect [1 1 1] film 0 film-ior 1.5}
+             :as opts}]
+  {:pre [(kw-or-str? id)
+         (color? reflect) (optional color? reflect-hsb)
+         (number? film) (kw-or-num? film-ior)]}
+  (material-common
+   scene id "mirror"
+   {:Kr [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
+    :film [:float film]
+    :filmindex [:float (resolve-ior film-ior)]}
+   opts))
 
 (defn volume
   [scene id {:keys [type ior absorb absorb-hsb abs-scale abs-depth]
@@ -161,7 +180,7 @@
   (append
    scene :volumes id
    {:__type type
-    :fresnel [:float (if (keyword ior) (presets/ior-presets ior) ior)]
+    :fresnel [:float (resolve-ior ior)]
     :absorption [:log-color [(if absorb-hsb (col/hsb->rgb absorb-hsb) absorb)
                              abs-scale abs-depth]]}))
 
@@ -172,11 +191,13 @@
 
 (defn renderer-slg
   [scene {:keys [cpu? gpu?]}]
-  (append-singleton
-   scene :renderer "slg"
-   {:config
-    [:string-vec [(str "opencl.cpu.use = " (optional-bool cpu? true))
-                  (str "opencl.gpu.use = " (optional-bool gpu? true))]]}))
+  (let [cpu? (if (optional-bool cpu? true) 1 0)
+        gpu? (if (optional-bool gpu? true) 1 0)]
+    (append-singleton
+     scene :renderer "slg"
+     {:config
+      [:string-vec [(str "opencl.cpu.use = " cpu?)
+                    (str "opencl.gpu.use = " gpu?)]]})))
 
 (defn renderer-sampler
   [scene]
@@ -220,6 +241,53 @@
      :lightdepth [:int light-depth]
      :lightraycount [:int light-rays]
      :lightpathstrategy [:string (name path-strategy)]})))
+
+(defn integrator-pathtracing
+  [scene {:keys [max-depth rr-strategy rr-prob env? direct-light?]
+          :or {max-depth 16 rr-strategy :efficiency rr-prob 0.65}
+          :as opts}]
+  {:pre [(number? max-depth) (number? rr-prob)
+         (conf/rr-strategies rr-strategy)]}
+  (append-singleton
+   scene :integrator "path"
+   (merge
+    (integrator-common opts)
+    {:maxdepth [:int max-depth]
+     :rrstrategy [:string (name rr-strategy)]
+     :rrcontinueprob [:float rr-prob]
+     :includeenvironment [:bool (optional-bool env? true)]
+     :directlightsampling [:bool (optional-bool direct-light? true)]})))
+
+(defn integrator-exphoton
+  [scene {:keys [max-depth max-photon-depth num-used max-photon-dist
+                 direct indirect caustic radiance
+                 final-gather? fg-samples fg-angle
+                 mode rr-strategy rr-prob]
+          :or {max-depth 48 max-photon-depth 16
+               direct 1e6 caustic 2e4 indirect 2e5 radiance 2e5
+               num-used 50 max-photon-dist 0.1
+               fg-samples 16 fg-angle 10
+               mode :directlighting
+               rr-strategy :efficiency rr-prob 0.65}
+          :as opts}]
+  (append-singleton
+   scene :integrator "exphotonmap"
+   (merge
+    (integrator-common opts)
+    {:maxdepth [:int max-depth]
+     :maxphotondepth [:int max-photon-depth]
+     :directphotons [:int direct]
+     :indirectphotons [:int indirect]
+     :causticphotons [:int caustic]
+     :radiancephotons [:int radiance]
+     :nphotonsused [:int num-used]
+     :maxphotondist [:float max-photon-dist]
+     :finalgather [:bool (optional-bool final-gather? true)]
+     :finalgathersamples [:int fg-samples]
+     :gatherangle [:float fg-angle]
+     :renderingmode [:string (name mode)]
+     :rrstrategy [:string (name rr-strategy)]
+     :rrcontinueprob [:float rr-prob]})))
 
 (defn integrator-sppm
   [scene {:keys [max-eye max-photon

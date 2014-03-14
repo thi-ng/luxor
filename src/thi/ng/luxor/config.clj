@@ -12,6 +12,7 @@
 (def ^:const light-strategies      #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
 (def ^:const light-path-strategies #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
 (def ^:const rr-strategies         #{:none :efficiency :probability})
+(def ^:const render-modes          #{:directlighting})
 
 (def ^:dynamic *indent*         2)
 (def ^:dynamic *degrees*        true)
