@@ -22,10 +22,8 @@
  ;; camera setup
  (camera {:eye [5 -5 5] :target [0 0 0] :up [0 0 1]})
  ;; film size, color response profile, progress updates, stop condition
- (film
-  {:width 1280 :height 720
-   :response :agfachrome-rsx2-200cd
-   :display-interval 5 :halt-spp 1000})
+ (film {:width 1280 :height 720 :response :agfachrome-rsx2-200cd
+        :display-interval 5 :halt-spp 1000})
  ;; tonemap config
  (tonemap-linear {:iso 100 :exposure 0.5 :f-stop 8 :gamma 2.2})
 
@@ -42,40 +40,40 @@
  ;; we assign them to light groups so they can be tweaked or disabled
  ;; in Luxrender during rendering...
  (light-groups {:top {:gain 40.0} :fill {:gain 5.0}})
- (area-light
-  :left {:p [0 0 4] :size [2 4] :group :fill :tx {:translate [-3 0 0] :ry -30}})
- (area-light
-  :top {:p [0 0 5] :size [8 8] :group :top})
- (area-light
-  :right {:p [0 0 4] :size [2 3] :group :fill :tx {:translate [3 0 0] :ry 30}})
+ (area-light :top   {:p [0 0 5] :size [8 8] :group :top})
+ (area-light :left  {:p [-3 0 4] :size [2 4] :group :fill
+                     :tx {:translate [-3 0 0] :ry -30}})
+ (area-light :right {:p [3 0 4] :size [2 3] :group :fill
+                     :tx {:translate [3 0 0] :ry 30}})
 
  ;; add scene geometries:
  ;; room box to trap light
- (ply-mesh
-  :room {:material :white :tx {:translate [0 0 8] :scale 16 :rz 45}
-         :mesh (-> (a/aabb 1) (g/center) (g/as-mesh))})
+ (ply-mesh :room {:material :white
+                  :tx {:translate [0 0 8] :scale 16 :rz 45}
+                  :mesh (-> (a/aabb 1) (g/center) (g/as-mesh))})
  ;; 16x16 grid of boxes
  ;; takes a single rect, subdivides it into 256 smaller rects
- ;; then extrudes each individually as walled mesh and re-combines into single
+ ;; then extrudes each individually as walled mesh
+ ;; and re-combines into single mesh
  ;; extrusion height and wall thickness is based on distance to center
  ;; and passed through cosine fn
  (ply-mesh
-  :grid {:material :milk :tx {:translate [0 0 0.1] :scale [2 2 1]}
+  :grid {:material :milk
+         :tx {:translate [0 0 0.1] :scale [2 2 1]}
          :mesh (->> (-> (r/rect 5) (g/center) (g/subdivide {:num 16}))
                     (map
-                     #(-> %
-                          (g/scale-size 0.9)
+                     #(-> (g/scale-size % 0.9)
                           (g/as-polygon)
                           (g/extrude-shell
-                           (let [d (-> %
-                                       (g/centroid)
+                           (let [d (-> (g/centroid %)
                                        (g/mag)
                                        (m/map-interval [0 3.75] [0 m/HALF_PI])
                                        (Math/cos))]
-                             {:depth (* 2 d)
-                              :wall (- 0.15 (* d 0.125))}))
-                          (g/faces)))
-                    (reduce gm/into-mesh (gm/gmesh)))})
+                             {:depth (* 2 d) :wall (- 0.15 (* d 0.125))}))))
+                    (reduce g/into-mesh))})
 
- ;; finally output LXS scene file & meshes
- (serialize-scene "luxor-test" false))
+ ;; finally serialize & output LXS scene files and meshes
+ ;; the `false` arg means materials, objects and volumes
+ ;; are included in the main scene file and not written as separate files
+ (serialize-scene "luxor-test" true)
+ (export-scene))
