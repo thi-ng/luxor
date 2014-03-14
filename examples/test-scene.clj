@@ -5,7 +5,8 @@
  '[thi.ng.geom.rect :as r]
  '[thi.ng.geom.polygon :as p]
  '[thi.ng.geom.gmesh :as gm]
- '[thi.ng.common.math.core :as m])
+ '[thi.ng.common.math.core :as m]
+ '[clojure.java.io :as io])
 
 ;; see LXS syntax ref for description of these entities & options
 ;; http://www.luxrender.net/wiki/Scene_file_format_dev
@@ -13,7 +14,8 @@
 (->
  ;; empty default lux scene
  (lux-scene)
-
+ (configure-meshes-as-byte-arrays)
+ 
  ;; customize sampler & renderer
  (renderer-sampler)
  (sampler-ld {})
@@ -76,4 +78,6 @@
  ;; the `false` arg means materials, objects and volumes
  ;; are included in the main scene file and not written as separate files
  (serialize-scene "luxor-test" true)
- (export-scene))
+ (export-scene)
+ (export-archived-scene "luxor-test.zip")
+ )
