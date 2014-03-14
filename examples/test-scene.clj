@@ -1,5 +1,6 @@
 (require
  '[thi.ng.luxor.core :refer :all]
+ '[thi.ng.luxor.io :as lio]
  '[thi.ng.geom.core :as g]
  '[thi.ng.geom.aabb :as a]
  '[thi.ng.geom.rect :as r]
@@ -78,9 +79,9 @@
  ;; finally serialize & output LXS scene files and meshes
  ;; the `false` arg means materials, objects and volumes
  ;; are included in the main scene file and not written as separate files
- (serialize-scene "luxor-test" false)
+ (lio/serialize-scene "luxor-test" false)
  ;; export scene files
- (export-scene)
+ (lio/export-scene)
  ;; additionally export all scene components as zip
  ;; (useful for when creating animations, each frame exported as archive)
- (export-archived-scene "luxor-test.zip"))
+ (lio/export-archived-scene "luxor-test.zip"))
