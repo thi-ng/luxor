@@ -48,7 +48,6 @@
 
 (defn- include-partials*
   [partials]
-  (prn :partials partials)
   (apply str (map include-file* partials)))
 
 (defn- inject-scene-partial
@@ -56,7 +55,6 @@
   (when partial
     (if include? (include-file* path) partial)))
 
-;; TODO rename into export-scene & split out serialize part
 (defn- serialize-lxs
   [scene base-path separate-files?]
   (let [base-name (path-filename base-path)
@@ -79,32 +77,12 @@
              (inject-scene-partial (:geometry scene) (str base-name ".lxo") separate-files?)
              (:lights scene)
              "\nWorldEnd\n")]
-    (spit lxs-path lxs)
-    lxs))
+    {:path lxs-path :body lxs}))
 
-(defn- serialize-lxm
-  [{:keys [materials]} base-path]
-  (when materials
-    (let [path (str base-path ".lxm")
-          body (str (lx-header path) materials)]
-      (spit path body)
-      body)))
-
-(defn- serialize-lxv
-  [{:keys [volumes]} base-path]
-  (when volumes
-    (let [path (str base-path ".lxv")
-          body (str (lx-header path) volumes)]
-      (spit path body)
-      body)))
-
-(defn- serialize-lxo
-  [{:keys [geometry]} base-path]
-  (when geometry
-    (let [path (str base-path ".lxo")
-          body (str (lx-header path) geometry)]
-      (spit path body)
-      body)))
+(defn- serialize-scene-component
+  [group path]
+  (when group
+    {:path path :body (str (lx-header path) group)}))
 
 (defn serialize-scene
   ([scene base-path]
@@ -128,13 +106,26 @@
                     :materials :material
                     :volumes :volume
                     :geometry :shape})
-           lxs (serialize-lxs scene* base-path separate?)]
+           serialized {:lxs (serialize-lxs scene* base-path separate?)}]
        (if separate?
-         (-> lxs
-             (str (serialize-lxm scene* base-path))
-             (str (serialize-lxo scene* base-path))
-             (str (serialize-lxv scene* base-path)))
-         lxs))))
+         (merge
+          serialized
+          {:lxm (serialize-scene-component (:materials scene*) (str base-path ".lxm"))
+           :lxo (serialize-scene-component (:geometry scene*) (str base-path ".lxo"))
+           :lxv (serialize-scene-component (:volumes scene*) (str base-path ".lxv"))})
+         serialized))))
+
+(defn export-scene
+  ([serialized-map]
+     (export-scene
+      serialized-map
+      (fn [_ path body]
+        (println "writing:" path)
+        (spit path body))))
+  ([serialized-map f]
+     (doseq [[id {:keys [path body]}] serialized-map]
+       (when (and path body)
+         (f id path body)))))
 
 (defn- make-transform-matrix
   [{:keys [scale rx ry rz axis theta translate] :or {rx 0 ry 0 rz 0} :as tx}]
