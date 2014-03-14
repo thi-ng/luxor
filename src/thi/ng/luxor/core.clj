@@ -136,12 +136,36 @@
              (str (serialize-lxv scene* base-path)))
          lxs))))
 
+(defn- make-transform-matrix
+  [{:keys [scale rx ry rz axis theta translate] :or {rx 0 ry 0 rz 0} :as tx}]
+  (let [mat (if translate
+              (g/translate M44 (vec3 translate))
+              M44)
+        mat (if axis
+              (g/rotate-around-axis mat axis theta)
+              (if (some (complement zero?) [rx ry rz])
+                (-> mat
+                    (g/rotate-x (->radians rx))
+                    (g/rotate-y (->radians ry))
+                    (g/rotate-z (->radians rz)))
+                mat))
+        mat (if scale (g/scale mat scale) mat)]
+    (vals (g/transpose mat))))
+
+(defn- transform-common
+  [scene {:keys [matrix] :as tx}]
+  {:__transform (if matrix matrix (make-transform-matrix tx))})
+
 (defn- append
   ([scene group id opts]
      (append scene group id opts false))
-  ([scene group id opts singleton?]
+  ([scene group id {tx :__transform :as opts} singleton?]
      (-> (if singleton? (dissoc scene group) scene)
-         (assoc-in [group id] (or opts {})))))
+         (assoc-in
+          [group (name id)]
+          (merge
+           (when tx (transform-common scene tx))
+           (dissoc opts :__transform))))))
 
 (defn- append*
   [scene group xs]
@@ -170,18 +194,16 @@
    :__exterior exterior})
 
 (defn material-null
-  [scene id {:as opts}]
+  [scene id]
   {:pre [(kw-or-str? id)]}
   (append
-   scene :materials (name id)
-   (merge
-    (material-common opts)
-    {:type [:string "null"]})))
+   scene :materials id
+   {:type [:string "null"]}))
 
 (defn material-mix
   [scene id m1 m2 blend]
   (append
-   scene :materials (name id)
+   scene :materials id
    {:type [:string "mix"]
     :namedmaterial1 [:string (name m1)]
     :namedmaterial2 [:string (name m2)]
@@ -195,7 +217,7 @@
   [scene id alpha]
   (if (< alpha 1.0)
     (material-mix
-     scene (name id) "__hidden__" (material-id id alpha) alpha)
+     scene id "__hidden__" (material-id id alpha) alpha)
     scene))
 
 (defn material-matte
@@ -248,7 +270,7 @@
          (color? absorb) (optional color? absorb-hsb)
          (number? abs-scale) (number? abs-depth)]}
   (append
-   scene :volumes (name id)
+   scene :volumes id
    {:__type type
     :fresnel [:float (if (keyword ior) (presets/ior-presets ior) ior)]
     :absorption [:log-color [(if absorb-hsb (col/hsb->rgb absorb-hsb) absorb)
@@ -257,10 +279,10 @@
 (defn volume-integrator
   [scene id]
   {:pre [(conf/volume-integrators id)]}
-  (append-singleton scene :volume-integrator (name id) {}))
+  (append-singleton scene :volume-integrator id {}))
 
 (defn renderer-slg
-  [scene {:keys [cpu? gpu? ]}]
+  [scene {:keys [cpu? gpu?]}]
   (append-singleton
    scene :renderer "slg"
    {:config
@@ -470,29 +492,9 @@
               :default    (assoc opts :autofocus [:bool true]))]
     (append-singleton scene :camera type opts)))
 
-(defn- make-transform-matrix
-  [{:keys [scale rx ry rz axis theta translate] :or {rx 0 ry 0 rz 0} :as tx}]
-  (let [mat (if translate
-              (g/translate M44 (vec3 translate))
-              M44)
-        mat (if axis
-              (g/rotate-around-axis mat axis theta)
-              (if (some (complement zero?) [rx ry rz])
-                (-> mat
-                    (g/rotate-x (->radians rx))
-                    (g/rotate-y (->radians ry))
-                    (g/rotate-z (->radians rz)))
-                mat))
-        mat (if scale (g/scale mat scale) mat)]
-    (vals (g/transpose mat))))
-
-(defn- transform-common
-  [scene {:keys [matrix] :as tx}]
-  {:__transform (if matrix matrix (make-transform-matrix tx))})
-
 (defn light-group
   [scene id {:keys [gain] :or {gain 1.0}}]
-  (append scene :light-groups (name id) {:__gain gain}))
+  (append scene :light-groups id {:__gain gain}))
 
 (defn light-groups
   [scene groups]
@@ -519,18 +521,17 @@
                 (pl/plane-with-p (g/vec3 (or p [0 0 0])) (g/vec3 (or n [0 0 -1])))
                 (if (sequential? size)
                   {:width (first size) :height (second size)}
-                  {:size size})))
-        id (name id)]
+                  {:size size})))]
     (append
      scene :lights id
      (merge
-      (when tx (transform-common scene tx))
       (light-common scene opts)
-      {:__type :area-light
+      {:__transform tx
+       :__type :area-light
        :__shape [(conf/mesh-types mesh-type)
                  {:__mesh mesh
                   :__export-path export-path
-                  :__basename (str "light-" id)}]
+                  :__basename (str "light-" (name id))}]
        :nsamples [:int samples]}))))
 
 (defn spot-light
@@ -538,11 +539,11 @@
              :or {cone-angle 30 cone-delta 5 from [0 0 1] to [0 0 0]}
              :as opts}]
   (append
-   scene :lights (name id)
+   scene :lights id
    (merge
-    (when tx (transform-common scene tx))
     (light-common scene opts)
-    {:__type :spot-light
+    {:__transform tx
+     :__type :spot-light
      :from [:point-vec [from]]
      :to [:point-vec [to]]
      :coneangle [:float (->degrees cone-angle)]
@@ -565,43 +566,40 @@
   [scene id {:keys [z radius inner-radius phi tx material]
              :or {z 0 radius 1 inner-radius 0 phi 360}}]
   (append
-   scene :geometry (name id)
-   (merge
-    (when tx (transform-common scene tx))
-    {:__type :disk
-     :__material material
-     :name [:string id]
-     :height [:float z]
-     :radius [:float radius]
-     :innerradius [:float inner-radius]
-     :phimax [:float phi]})))
+   scene :geometry id
+   {:__transform tx
+    :__type :disk
+    :__material material
+    :name [:string (name id)]
+    :height [:float z]
+    :radius [:float radius]
+    :innerradius [:float inner-radius]
+    :phimax [:float phi]}))
 
 (defn ply-mesh
   [scene id {:keys [mesh path export-path tx material smooth]}]
   (append
-   scene :geometry (name id)
-   (merge
-    (when tx (transform-common scene tx))
-    {:__type :plymesh
-     :__material material
-     :__mesh mesh
-     :__export-path (or export-path path)
-     :name [:string id]
-     :filename [:string (or path (str (name id) ".ply"))]
-     :smooth [:bool smooth]})))
+   scene :geometry id
+   {:__transform tx
+    :__type :plymesh
+    :__material material
+    :__mesh mesh
+    :__export-path (or export-path path)
+    :name [:string (name id)]
+    :filename [:string (or path (str (name id) ".ply"))]
+    :smooth [:bool smooth]}))
 
 (defn stl-mesh
   [scene id {:keys [mesh path export-path tx material]}]
   (append
-   scene :geometry (name id)
-   (merge
-    (when tx (transform-common scene tx))
-    {:__type :stlmesh
-     :__material material
-     :__mesh mesh
-     :__export-path (or export-path path)
-     :name [:string id]
-     :filename [:string (or path (str (name id) ".stl"))]})))
+   scene :geometry id
+   {:__transform tx
+    :__type :stlmesh
+    :__material material
+    :__mesh mesh
+    :__export-path (or export-path path)
+    :name [:string (name id)]
+    :filename [:string (or path (str (name id) ".stl"))]}))
 
 (defn lux-scene
   []
@@ -614,4 +612,4 @@
       (accelerator-qbvh {})
       (film {})
       (light-group "default" {})
-      (material-null "__hidden__" {})))
+      (material-null "__hidden__")))
