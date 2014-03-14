@@ -44,9 +44,9 @@
  ;; in Luxrender during rendering...
  (light-groups {:top {:gain 40.0} :fill {:gain 5.0}})
  (area-light :top   {:p [0 0 5] :size [8 8] :group :top})
- (area-light :left  {:p [-3 0 4] :size [2 4] :group :fill
+ (area-light :left  {:p [0 0 4] :size [2 4] :group :fill
                      :tx {:translate [-3 0 0] :ry -30}})
- (area-light :right {:p [3 0 4] :size [2 3] :group :fill
+ (area-light :right {:p [0 0 4] :size [2 3] :group :fill
                      :tx {:translate [3 0 0] :ry 30}})
 
  ;; add scene geometries:
