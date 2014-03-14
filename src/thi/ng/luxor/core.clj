@@ -56,7 +56,7 @@
             "")))
 
 (defn- path-filename
-  [path] (.getName (File. path)))
+  [path] (.getName (File. ^String path)))
 
 (defn- include-file*
   [path]
@@ -140,7 +140,9 @@
       serialized-map
       (fn [_ path body]
         (println "exporting:" path)
-        (spit path body))))
+        (with-open [out (io/output-stream path)]
+          (let [buf ^bytes (as-byte-array body)]
+            (.write out buf 0 (alength buf)))))))
   ([serialized-map f]
      (doseq [[id {:keys [path body]}] serialized-map]
        (when (and path body)
@@ -153,9 +155,9 @@
     (.setMethod zip ZipOutputStream/DEFLATED)
     (doseq [[id {:keys [path body]}] serialized-map]
       (when (and path body)
-        (let [buf (as-byte-array body)]
+        (let [buf ^bytes (as-byte-array body)]
           (doto zip
-            (.putNextEntry (ZipEntry. path))
+            (.putNextEntry (ZipEntry. ^String path))
             (.write buf 0 (alength buf)))))))
   serialized-map)
 
@@ -643,6 +645,14 @@
   (assoc-in scene [:__config :mesh-streamer] f))
 
 (defn configure-mesh-collector
+  "Configures the scene to use given fn as mesh collector during
+  serialization. The fn needs to accept the scene as single arg and
+  return a map of:
+
+    {mesh-id {:path export-path :body mesh}
+
+  The :body value must satisfy the PAsByteArray protocol defined in
+  this namespace."
   [scene f]
   (assoc-in scene [:__config :mesh-collector] f))
 
