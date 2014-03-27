@@ -79,7 +79,7 @@
                                          (mapcat identity xs))))))
 
 (defmethod emit :bool
-  [_ _ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) x))
+  [_ _ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) (if x true false)))
 
 (defmethod emit :string
   [_ _ id x] (format "\"string %s\" [\"%s\"]\n" (name id) x))
@@ -136,7 +136,9 @@
   (let [[stype sopts] (:__shape opts)]
     (str
      (luxentity scene "AreaLightSource" "area" opts)
-     (emit stype scene (str id "-mesh") sopts))))
+     (emit stype scene (str id "-mesh")
+           (assoc sopts
+             :name [:string (:__basename sopts)])))))
 
 (defmethod emit :spot-light
   [_ scene id opts]
@@ -178,31 +180,30 @@
   (let [verts (vec (keys (:vertices __mesh)))
         vidx (zipmap verts (range))
         indices (->> (:faces __mesh)
-                    (mapcat gm/tessellate-face1)
-                    (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)])))]
+                     (mapcat gm/tessellate-face1)
+                     (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)])))]
     (luxentity
      scene "Shape" "trianglemesh"
      {:indices [:int-vec (vec indices)]
       :P [:point-vec verts]
       :name [:string id]})))
 
-(defmethod emit :plymesh
-  [_ scene id {:keys [__mesh __basename  filename __export-path] :as opts}]
-  (when __mesh
-    (let [path (or __export-path (second filename) (str __basename ".ply"))
-          stream-fn (get-in scene [:__config :mesh-streamer])]
+(defn file-mesh
+  [scene id type ext {:keys [__mesh __basename  filename __export-path smooth] :as opts}]
+  (let [path (or __export-path (second filename) (str __basename ext))
+        stream-fn (get-in scene [:__config :mesh-streamer])]
+    (when __mesh
       (with-open [out (stream-fn id path)]
-        (mio/write-ply out __mesh))))
-  (luxentity scene "Shape" "plymesh" opts))
+        (mio/write-ply out __mesh)))
+    (luxentity scene "Shape" type (assoc opts :filename [:string path]))))
+
+(defmethod emit :plymesh
+  [_ scene id opts]
+  (file-mesh scene id "plymesh" ".ply" opts))
 
 (defmethod emit :stlmesh
-  [_ scene id {:keys [__mesh __basename  filename __export-path] :as opts}]
-  (when __mesh
-    (let [path (or __export-path (second filename) (str __basename ".stl"))
-          stream-fn (get-in scene [:__config :mesh-streamer])]
-      (with-open [out (stream-fn id path)]
-        (mio/write-stl out __mesh))))
-  (luxentity scene "Shape" "stlmesh" opts))
+  [_ scene id opts]
+  (file-mesh scene id "stlmesh" ".stl" opts))
 
 (defmethod emit :shape
   [_ scene id {:keys [__type] :as opts}]

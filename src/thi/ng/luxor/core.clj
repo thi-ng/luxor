@@ -470,7 +470,7 @@
    :importance [:float importance]})
 
 (defn area-light
-  [scene id {:keys [samples mesh mesh-type export-path p n size tx]
+  [scene id {:keys [samples mesh mesh-type export-path p n size smooth tx]
              :or {samples 1 size 1.0 mesh-type :inline} :as opts}]
   (let [mesh (if mesh
                mesh
@@ -479,17 +479,20 @@
                  (g/vec3 (or p [0 0 0])) (g/vec3 (or n [0 0 -1])))
                 (if (sequential? size)
                   {:width (first size) :height (second size)}
-                  {:size size})))]
+                  {:size size})))
+        mesh-opts {:__mesh mesh
+                   :__export-path export-path
+                   :__basename (str "light-" (name id))}
+        mesh-opts (if (= :ply mesh-type)
+                    (assoc mesh-opts :smooth [:bool smooth])
+                    mesh-opts)]
     (append
      scene :lights id
      (merge
       (light-common scene opts)
       {:__transform tx
        :__type :area-light
-       :__shape [(conf/mesh-types mesh-type)
-                 {:__mesh mesh
-                  :__export-path export-path
-                  :__basename (str "light-" (name id))}]
+       :__shape [(conf/mesh-types mesh-type) mesh-opts]
        :nsamples [:int samples]}))))
 
 (defn spot-light
