@@ -1,0 +1,296 @@
+#+SETUPFILE: "setup.org"
+#+TITLE: thi.ng/luxor
+
+* About the project
+
+** Overview
+
+[[../assets/test-scene.jpg]]
+
+This project is part of the [[https://github.com/thi-ng/][thi.ng]] collection of Clojure &
+Clojurescript libraries.
+
+Luxor is a Clojure based LXS scene graph compiler, generator & mesh
+exporter for [[http://luxrender.net][Luxrender]] (v1.3+), an open source, physically based and
+unbiased rendering engine.
+
+** Status
+
+ALPHA quality, docs forthcoming. Note, only the most commonly used Lux
+functionality is implemented thus far, but more feature support is
+planned. All Lux entity generators use the same default values as
+specified in the official LXS syntax reference:
+
+http://www.luxrender.net/wiki/Scene_file_format_dev
+
+Since Luxrender has *a lot* of options for its various scene
+components, it is highly recommended to study the above reference in
+order to customize defaults and obtain high quality renders.
+
+** Example usage
+
+#+BEGIN_SRC clojure
+  (require 'thi.ng.luxor.core)
+
+  ;; TODO some magic
+#+END_SRC
+
+
+The code below is responsible for the example image above. To run,
+just clone this repo, tangle all files (see below), launch a REPL and
+load the example:
+
+#+BEGIN_SRC clojure
+  (load-file "examples/test-scene.clj")
+#+END_SRC
+
+The resulting LXS scene file and meshes are saved in the project root
+dir (additionally all scene components are saved as ZIP file too).
+Double click the LXS file to launch in Luxrender.
+
+#+BEGIN_SRC clojure :tangle ../babel/examples/test-scene.clj :mkdirp yes :padline no
+  (require
+   '[thi.ng.luxor.core :refer :all]
+   '[thi.ng.luxor.io :as lio]
+   '[thi.ng.geom.core :as g]
+   '[thi.ng.geom.aabb :as a]
+   '[thi.ng.geom.rect :as r]
+   '[thi.ng.geom.polygon :as p]
+   '[thi.ng.geom.gmesh :as gm]
+   '[thi.ng.common.math.core :as m])
+
+  ;; see LXS syntax ref for description of these entities & options
+  ;; http://www.luxrender.net/wiki/Scene_file_format_dev
+
+  (do ;; wrap in `do` form to avoid full scene dump in repl (optional)
+    (->
+     ;; empty default lux scene
+     (lux-scene)
+
+     ;; configure scene to collect meshes during serialization
+     ;; (needed for ZIP export)
+     (configure-meshes-as-byte-arrays)
+
+     ;; customize sampler & renderer
+     (renderer-sampler)
+     (sampler-ld {})
+     (integrator-bidir {})
+
+     ;; camera setup
+     (camera {:eye [5 -5 5] :target [0 0 0] :up [0 0 1]})
+     ;; film size, color response profile, progress updates, stop condition (samples per pixel)
+     (film {:width 1280 :height 720
+            :response :agfachrome-rsx2-200cd
+            :display-interval 5 :halt-spp 1000})
+     ;; tonemap config (must be given after film)
+     (tonemap-linear {:iso 100 :exposure 0.5 :f-stop 8 :gamma 2.2})
+
+     ;; define medium with milky consistency (used for material below)
+     (volume
+      :inside {:type :clear :absorb [0.97 0.8 0.7] :abs-depth 0.05 :ior 2.04})
+     ;; semi-translucent material w/ above medium as interior
+     (material-matte-translucent
+      :milk {:interior :inside :reflect [0.3 0.3 0.3] :transmit [0.8 0.7 0.6]})
+     ;; standard matt white for background/room box
+     (material-matte :white {:diffuse [0.8 0.8 0.8]})
+
+     ;; studio light setup: 1x top light, 2x left/right fillers
+     ;; we assign them to light groups so they can be tweaked or disabled
+     ;; in Luxrender during rendering...
+     (light-groups {:top {:gain 40.0} :fill {:gain 5.0}})
+     (area-light :top   {:p [0 0 5] :size [8 8] :group :top})
+     (area-light :left  {:p [0 0 4] :size [2 4] :group :fill
+                         :tx {:translate [-3 0 0] :ry -30}})
+     (area-light :right {:p [0 0 4] :size [2 3] :group :fill
+                         :tx {:translate [3 0 0] :ry 30}})
+
+     ;; add scene geometries:
+     ;; room box to trap light
+     (ply-mesh
+      :room {:material :white
+             :tx {:translate [0 0 8] :scale 16 :rz 45}
+             :mesh (-> (a/aabb 1) (g/center) (g/as-mesh))})
+     ;; 16x16 grid of boxes
+     ;; takes a single rect, subdivides it into 256 smaller rects
+     ;; then extrudes each individually as walled mesh
+     ;; and re-combines into single mesh
+     ;; extrusion height and wall thickness is based on distance to center
+     ;; and passed through cosine fn
+     (ply-mesh
+      :grid {:material :milk
+             :tx {:translate [0 0 0.1] :scale [2 2 1]}
+             :mesh (->> (-> (r/rect 5) (g/center) (g/subdivide {:num 16}))
+                        (map
+                         #(-> (g/scale-size % 0.9)
+                              (g/as-polygon)
+                              (g/extrude-shell
+                               (let [d (-> (g/centroid %)
+                                           (g/mag)
+                                           (m/map-interval [0 3.75] [0 m/HALF_PI])
+                                           (Math/cos))]
+                                 {:depth (* 2 d) :wall (- 0.15 (* d 0.125))}))))
+                        (reduce g/into-mesh))})
+
+     ;; finally serialize & output LXS scene files and meshes
+     ;; the `false` arg means materials, objects and volumes
+     ;; are included in the main scene file and not written as separate files
+     (lio/serialize-scene "luxor-test" false)
+     ;; export scene files
+     (lio/export-scene)
+     ;; additionally export all scene components as zip
+     ;; (useful for when creating animations, each frame exported as archive)
+     (lio/export-archived-scene "luxor-test.zip"))
+
+    (println "done."))
+#+END_SRC
+
+** License
+
+This project is open source and licensed under the [[http://www.apache.org/licenses/LICENSE-2.0][Apache Software License 2.0]].
+
+** Injected properties                                             :noexport:
+
+#+BEGIN_SRC clojure :exports none :noweb-ref version
+0.3.0-SNAPSHOT
+#+END_SRC
+#+BEGIN_SRC clojure :exports none :noweb-ref project-url
+https://github.com/thi-ng/luxor
+#+END_SRC
+
+** Dependencies
+*** Runtime
+**** [[https://github.com/clojure/clojure][Clojure]]
+#+BEGIN_SRC clojure :noweb-ref dep-clj
+[org.clojure/clojure "1.6.0"]
+#+END_SRC
+**** [[https://github.com/thi-ng/geom][thi.ng/geom]]
+#+BEGIN_SRC clojure :noweb-ref dep-geom
+[thi.ng/geom "0.2.1-SNAPSHOT"]
+#+END_SRC
+**** [[https://github.com/thi-ng/common][thi.ng/common]]
+#+BEGIN_SRC clojure :noweb-ref dep-common
+[thi.ng/common "0.1.2"]
+#+END_SRC
+
+*** Development
+**** [[https://github.com/hugoduncan/criterium][Criterium]]
+#+BEGIN_SRC clojure :noweb-ref dep-criterium
+[criterium "0.4.1"]
+#+END_SRC
+
+** Contributors
+
+| *Name*          | *Role*                          | *Website*                  |
+|-----------------+---------------------------------+----------------------------|
+| [[k@thi.ng][Karsten Schmidt]] | initiator & principal developer | http://postspectacular.com |
+
+** Release history
+
+| *Version* | *Released* | *Description*      | *Lein coordinates*       | *Tagged Github URL* |
+|-----------+------------+--------------------+--------------------------+---------------------|
+|     0.2.0 | pending    | 1st public release | =[thi.ng/luxor "0.2.0"]= | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               |
+
+** Leiningen coordinates
+
+#+BEGIN_SRC clojure :noweb yes :noweb-ref lein-coords
+  [thi.ng/luxor <<version>>]
+#+END_SRC
+
+** Building this project
+
+This project is written in a literate programming format and requires
+[[https://www.gnu.org/software/emacs/][Emacs]] & [[http://orgmode.org][Org-mode]] to generate usable source code. Assuming both tools
+are installed, the easiest way to generate a working project is via
+command line (make sure =emacs= is on your path or else edit its path
+in =tangle.sh=):
+
+#+BEGIN_SRC bash
+  git clone https://github.com/thi.ng/luxor.git
+  cd luxor
+  ./tangle.sh src/*.org test/*.org
+#+END_SRC
+
+Tangling is the process of extracting & combining source blocks from
+=.org= files into an actual working project/source tree. Once tangling
+is complete, you can =cd= into the generated project directory
+(=babel=) and then use =lein= as usual.
+
+*** Testing
+
+The =project.clj= file defines an alias to trigger a complete build &
+test run. *Note:* There are currently NO tests, though...
+
+#+BEGIN_SRC bash
+  cd babel
+  lein cleantest
+#+END_SRC
+
+*** Working with the REPL
+
+Re-loading & testing changes is quite trivial. Simply launch a REPL
+(via =lein= or Emacs) as usual. Everytime you've made changes to an
+=.org= file, re-tangle it from Emacs (=C-c C-v t=) or =tangle.sh=,
+then reload the namespace in the REPL via =(require
+'thi.ng.luxor... :reload)= or similar.
+
+** Leiningen project file                                          :noexport:
+
+#+BEGIN_SRC clojure :tangle ../babel/project.clj :noweb yes :mkdirp yes :padline no
+  (defproject thi.ng/luxor "<<version>>"
+    :description
+    "Scene graph compiler, generator & mesh exporter for Luxrender"
+    :url "<<project-url>>"
+    :license {:name "Apache Software License 2.0"
+              :url "http://www.apache.org/licenses/LICENSE-2.0"}
+    :dependencies [<<dep-clj>>
+                   <<dep-geom>>
+                   <<dep-common>>]
+
+    :profiles {:dev {:dependencies [<<dep-criterium>>]
+                     :aliases {"cleantest" ["do" "clean," "test"]}}}
+
+    :pom-addition [:developers [:developer
+                                [:name "Karsten Schmidt"]
+                                [:url "http://postspectacular.com"]
+                                [:timezone "0"]]])
+#+END_SRC
+
+** Accessing library version during runtime
+
+The autogenerated namespace =thi.ng.luxor.version= contains a single
+symbol =version= holding the version string defined above:
+
+#+BEGIN_SRC clojure :noweb yes
+  (use '[thi.ng.luxor.version])
+  
+  (prn version)
+  ; "<<version>>"
+#+END_SRC
+
+*** Version namespace                                              :noexport:
+
+#+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/version.clj :noweb yes :mkdirp yes :padline no :exports none
+  (ns thi.ng.luxor.version)
+
+  (def ^:const version "<<version>>")
+#+END_SRC
+
+* Modules
+
+*** Note for Github users
+
+The following sections contain links to project modules, but are not
+visibile when reading this file on Github. Please navigate to the
+source files via the normal [[https://github.com/thi-ng/luxor/tree/master/][GH repo browser]].
+
+** Core API
+
+#+INCLUDE: "core.org" :minlevel 2
+#+INCLUDE: "compiler.org" :minlevel 2
+#+INCLUDE: "io.org" :minlevel 2
+#+INCLUDE: "color.org" :minlevel 2
+#+INCLUDE: "config.org" :minlevel 2
+
+* Tests
+
+#+INCLUDE: "../test/core.org" :minlevel 2

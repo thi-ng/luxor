@@ -1,0 +1,22 @@
+#+SETUPFILE: "../src/setup.org"
+
+* thi.ng.luxor.test.core
+
+** Namespace declaration
+
+#+BEGIN_SRC clojure :tangle ../babel/test/thi/ng/luxor/test/core.clj :mkdirp yes :padline no
+  (ns thi.ng.luxor.test.core
+    (:require [clojure.test :refer :all]))
+#+END_SRC
+** TODO Test constants
+
+#+BEGIN_SRC clojure :tangle ../babel/test/thi/ng/luxor/test/core.clj
+  (def meaning 42)
+#+END_SRC
+
+** TODO Main tests
+
+#+BEGIN_SRC clojure :tangle ../babel/test/thi/ng/luxor/test/core.clj
+  (deftest epic-fail
+    (is (= 3 (+ 1 1)) "FIXME"))
+#+END_SRC
