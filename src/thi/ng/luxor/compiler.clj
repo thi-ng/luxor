@@ -13,8 +13,8 @@
   (let [{:keys [__interior __exterior]} (get-in scene [:materials id])]
     (str
      (format "NamedMaterial \"%s\"\n" (name id))
-     (when __interior (format "Interior \"%s\"\n" __interior))
-     (when __exterior (format "Exterior \"%s\"\n" __exterior)))))
+     (when __interior (format "Interior \"%s\"\n" (name __interior)))
+     (when __exterior (format "Exterior \"%s\"\n" (name __exterior))))))
 
 (defn filter-opts
   [xs] (->> xs (filter #(not (.startsWith (name (key %)) "__"))) (into {})))
@@ -137,8 +137,7 @@
     (str
      (luxentity scene "AreaLightSource" "area" opts)
      (emit stype scene (str id "-mesh")
-           (assoc sopts
-             :name [:string (:__basename sopts)])))))
+           (assoc sopts :name [:string (:__basename sopts)])))))
 
 (defmethod emit :spot-light
   [_ scene id opts]
@@ -189,21 +188,22 @@
       :name [:string id]})))
 
 (defn file-mesh
-  [scene id type ext {:keys [__mesh __basename  filename __export-path smooth] :as opts}]
+  [scene id type ext export-fn
+   {:keys [__mesh __basename  filename __export-path smooth] :as opts}]
   (let [path (or __export-path (second filename) (str __basename ext))
         stream-fn (get-in scene [:__config :mesh-streamer])]
     (when __mesh
       (with-open [out (stream-fn id path)]
-        (mio/write-ply out __mesh)))
+        (export-fn out __mesh)))
     (luxentity scene "Shape" type (assoc opts :filename [:string path]))))
 
 (defmethod emit :plymesh
   [_ scene id opts]
-  (file-mesh scene id "plymesh" ".ply" opts))
+  (file-mesh scene id "plymesh" ".ply" mio/write-ply opts))
 
 (defmethod emit :stlmesh
   [_ scene id opts]
-  (file-mesh scene id "stlmesh" ".stl" opts))
+  (file-mesh scene id "stlmesh" ".stl" mio/write-stl opts))
 
 (defmethod emit :shape
   [_ scene id {:keys [__type] :as opts}]
