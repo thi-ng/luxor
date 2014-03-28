@@ -87,7 +87,7 @@ Double click the LXS file to launch in Luxrender.
 
      ;; define medium with milky consistency (used for material below)
      (volume
-      :inside {:type :clear :absorb [0.97 0.8 0.7] :abs-depth 0.05 :ior 2.04})
+      :inside {:type :clear :absorb [0.97 0.8 0.7] :abs-depth 0.2 :ior 2.04})
      ;; semi-translucent material w/ above medium as interior
      (material-matte-translucent
       :milk {:interior :inside :reflect [0.3 0.3 0.3] :transmit [0.8 0.7 0.6]})
@@ -97,7 +97,7 @@ Double click the LXS file to launch in Luxrender.
      ;; studio light setup: 1x top light, 2x left/right fillers
      ;; we assign them to light groups so they can be tweaked or disabled
      ;; in Luxrender during rendering...
-     (light-groups {:top {:gain 40.0} :fill {:gain 5.0}})
+     (light-groups {:top {:gain 32.0} :fill {:gain 3.0}})
      (area-light :top   {:p [0 0 5] :size [8 8] :group :top})
      (area-light :left  {:p [0 0 4] :size [2 4] :group :fill
                          :tx {:translate [-3 0 0] :ry -30}})
