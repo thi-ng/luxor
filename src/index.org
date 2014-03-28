@@ -3,9 +3,10 @@
 
 * About the project
 
-** Overview
 
 [[../assets/test-scene.jpg]]
+
+** Overview
 
 This project is part of the [[https://github.com/thi-ng/][thi.ng]] collection of Clojure &
 Clojurescript libraries.
@@ -186,9 +187,10 @@ https://github.com/thi-ng/luxor
 
 ** Release history
 
-| *Version* | *Released* | *Description*      | *Lein coordinates*       | *Tagged Github URL* |
-|-----------+------------+--------------------+--------------------------+---------------------|
-|     0.2.0 | pending    | 1st public release | =[thi.ng/luxor "0.2.0"]= | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               |
+| *Version*      | *Released* | *Description*                      | *Lein coordinates*                | *Tagged Github URL* | *Availability* |
+|----------------+------------+------------------------------------+-----------------------------------+---------------------+----------------|
+| 0.3.0-SNAPSHOT | pending    | Project restructure, API additions | =[thi.ng/luxor "0.3.0-SNAPSHOT"]= |                     | [[https://clojars.org/thi.ng/luxor/versions/0.3.0-SNAPSHOT][Clojars]]        |
+| 0.2.0          | 2014-03-10 | 1st public release                 | =[thi.ng/luxor "0.2.0"]=          | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               | [[https://clojars.org/thi.ng/luxor/versions/0.2.0][Clojars]]        |
 
 ** Leiningen coordinates
 
@@ -205,7 +207,7 @@ command line (make sure =emacs= is on your path or else edit its path
 in =tangle.sh=):
 
 #+BEGIN_SRC bash
-  git clone https://github.com/thi.ng/luxor.git
+  git clone https://github.com/thi-ng/luxor.git
   cd luxor
   ./tangle.sh src/*.org test/*.org
 #+END_SRC
