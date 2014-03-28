@@ -168,6 +168,14 @@
     :filmindex [:float (resolve-ior film-ior)]}
    opts))
 
+(defn material-glass2
+  [scene id {:keys [arch? dispersion?] :as opts}]
+  (material-common
+   scene id "glass2"
+   {:architectural [:bool arch?]
+    :dispersion [:bool dispersion?]}
+   opts))
+
 (defn volume
   [scene id {:keys [type ior absorb absorb-hsb abs-scale abs-depth]
              :or {type :clear absorb [1.0 1.0 1.0]
@@ -220,6 +228,21 @@
   (append-singleton
    scene :sampler "sobol"
    {:noiseaware [:bool (optional-bool noise-aware? true)]}))
+
+(defn sampler-metropolis
+  [scene {:keys [large-mut max-rejects mut-range
+                 noise-aware? variance? cool-down?]
+          :or {max-rejects 512 large-mut 0.4 mut-range 0}}]
+  {:pre [(number? max-rejects) (number? large-mut) (number? mut-range)]}
+  (let [opts {:maxconsecrejects [:int max-rejects]
+              :largemutationprob [:float large-mut]
+              :usevariance [:bool variance?]
+              :usecooldown [:bool cool-down?]
+              :noiseaware [:bool (optional-bool noise-aware? true)]}
+        opts (if (pos? mut-range)
+               (assoc opts :mutationrange [:float mut-range])
+               opts)]
+    (append-singleton scene :sampler "metropolis" opts)))
 
 (defn- integrator-common
   [{:keys [shadow-rays light-strategy] :or {shadow-rays 1 light-strategy :auto}}]
@@ -497,7 +520,7 @@
 
 (defn spot-light
   [scene id {:keys [from to cone-angle cone-delta tx]
-             :or {cone-angle 30 cone-delta 5 from [0 0 1] to [0 0 0]}
+             :or {cone-angle 30 cone-delta 5 from [0 0 0] to [0 0 1]}
              :as opts}]
   (append
    scene :lights id
@@ -507,8 +530,8 @@
      :__type :spot-light
      :from [:point-vec [from]]
      :to [:point-vec [to]]
-     :coneangle [:float (->degrees cone-angle)]
-     :conedeltaangle [:float (->degrees cone-delta)]})))
+     :coneangle [:float (/ (->degrees cone-angle) 2.0)]
+     :conedeltaangle [:float (/ (->degrees cone-delta) 2)]})))
 
 (def light-types
   {:area area-light
@@ -530,7 +553,7 @@
    scene :geometry id
    {:__transform tx
     :__type :disk
-    :__material material
+    :__material (name material)
     :name [:string (name id)]
     :height [:float z]
     :radius [:float radius]
@@ -544,17 +567,20 @@
    (merge
     base
     {:__transform tx
-     :__type :plymesh
-     :__material material
+     :__material (name material)
      :__mesh mesh
      :__export-path (or export-path path)
      :name [:string (name id)]
      :filename [:string (or path (str (name id) ext))]})))
 
 (defn ply-mesh
-  [scene id {:keys [smooth] :as opts}]
+  [scene id {:keys [smooth? gen-tangents?] :as opts}]
   (mesh-common
-   scene id ".ply" {:__type :plymesh :smooth [:bool smooth]} opts))
+   scene id ".ply"
+   {:__type :plymesh
+    :smooth [:bool smooth?]
+    :generatetangents [:bool gen-tangents?]}
+   opts))
 
 (defn stl-mesh
   [scene id opts]
@@ -589,6 +615,14 @@
          (fn [_] @state)))))
 
 (defn lux-scene
+  "Returns default scene map with:
+    - SPPM renderer & integrator
+    - Sobol sampler
+    - Mitchell pixel filter
+    - Multi-volume integrator
+    - Default film settings
+    - Default light group
+    - Null material (hidden)"
   []
   (-> {}
       (configure-mesh-streamer lio/file-mesh-stream)
