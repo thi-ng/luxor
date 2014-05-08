@@ -32,7 +32,7 @@
                       (g/rotate-z (->radians rz)))
                   mat))
           mat (if scale (g/scale mat scale) mat)]
-      (vals (g/transpose mat)))) ;; FIXME update once M44 is deftype
+      (g/transpose mat)))
 
   (defn- transform-common
     [scene {:keys [matrix] :as tx}]
@@ -437,7 +437,7 @@
                 :__lookat {:eye eye :target target
                            :up (if up
                                  (vec3 up)
-                                 (g/normalize (g/cross (g/- eye target) g/V3X)))}}
+                                 (gu/ortho-normal (g/- eye target) V3X))}}
           opts (cond
                 focal-dist  (assoc opts
                               :focaldistance [:float focal-dist]
@@ -478,8 +478,8 @@
     (let [mesh (if mesh
                  mesh
                  (g/as-mesh
-                  (pl/plane-with-p
-                   (g/vec3 (or p [0 0 0])) (g/vec3 (or n [0 0 -1])))
+                  (pl/plane-with-point
+                   (vec3 (or p [0 0 0])) (vec3 (or n [0 0 -1])))
                   (if (sequential? size)
                     {:width (first size) :height (second size)}
                     {:size size})))
@@ -709,10 +709,12 @@
      [thi.ng.luxor.color :as col]
      [thi.ng.luxor.io :as lio]
      [thi.ng.luxor.presets :as presets]
-     [thi.ng.common.math.core :as m]
-     [thi.ng.geom.core :as g :refer [vec3 M44]]
+     [thi.ng.geom.core :as g]
+     [thi.ng.geom.core.utils :as gu]
+     [thi.ng.geom.core.vector :as v :refer [vec3 V3X]]
+     [thi.ng.geom.core.matrix :as mat :refer [M44]]
      [thi.ng.geom.plane :as pl]
-     [thi.ng.geom.gmesh :as gmesh]
+     [thi.ng.common.math.core :as m]
      [clojure.java.io :as io])
     (:import
      [java.io ByteArrayOutputStream]))

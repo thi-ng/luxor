@@ -57,7 +57,6 @@ Double click the LXS file to launch in Luxrender.
    '[thi.ng.geom.aabb :as a]
    '[thi.ng.geom.rect :as r]
    '[thi.ng.geom.polygon :as p]
-   '[thi.ng.geom.gmesh :as gm]
    '[thi.ng.common.math.core :as m])
 
   ;; see LXS syntax ref for description of these entities & options
@@ -130,7 +129,7 @@ Double click the LXS file to launch in Luxrender.
                                            (m/map-interval [0 3.75] [0 m/HALF_PI])
                                            (Math/cos))]
                                  {:depth (* 2 d) :wall (- 0.15 (* d 0.125))}))))
-                        (reduce g/into-mesh))})
+                        (reduce g/into))})
 
      ;; finally serialize & output LXS scene files and meshes
      ;; the `false` arg means materials, objects and volumes
@@ -164,19 +163,22 @@ https://github.com/thi-ng/luxor
 #+BEGIN_SRC clojure :noweb-ref dep-clj
 [org.clojure/clojure "1.6.0"]
 #+END_SRC
-**** [[https://github.com/thi-ng/geom][thi.ng/geom]]
+**** [[https://github.com/thi-ng/geom][thi.ng/geom-core]]
 #+BEGIN_SRC clojure :noweb-ref dep-geom
-[thi.ng/geom "0.2.1-SNAPSHOT"]
+[thi.ng/geom-core "0.3.0-SNAPSHOT"]
+#+END_SRC
+**** [[https://github.com/thi-ng/geom][thi.ng/geom-types]]
+#+BEGIN_SRC clojure :noweb-ref dep-geom
+[thi.ng/geom-types "0.3.0-SNAPSHOT"]
 #+END_SRC
 **** [[https://github.com/thi-ng/common][thi.ng/common]]
 #+BEGIN_SRC clojure :noweb-ref dep-common
-[thi.ng/common "0.1.2"]
+[thi.ng/common "0.2.0-SNAPSHOT"]
 #+END_SRC
-
 *** Development
 **** [[https://github.com/hugoduncan/criterium][Criterium]]
 #+BEGIN_SRC clojure :noweb-ref dep-criterium
-[criterium "0.4.1"]
+[criterium "0.4.3"]
 #+END_SRC
 
 ** Contributors
