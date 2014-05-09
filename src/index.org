@@ -62,7 +62,7 @@ Double click the LXS file to launch in Luxrender.
   ;; see LXS syntax ref for description of these entities & options
   ;; http://www.luxrender.net/wiki/Scene_file_format_dev
 
-  (do ;; wrap in `do` form to avoid full scene dump in repl (optional)
+  (do ;; wrap in `do` form to avoid full scene dump in repl (optional/cosmetic)
     (->
      ;; empty default lux scene
      (lux-scene)
@@ -77,17 +77,23 @@ Double click the LXS file to launch in Luxrender.
      (integrator-bidir {})
 
      ;; camera setup
-     (camera {:eye [5 -5 5] :target [0 0 0] :up [0 0 1]})
+     (camera
+      {:eye [5 -5 5] :target [0 0 0] :up [0 0 1]})
+
      ;; film size, color response profile, progress updates, stop condition (samples per pixel)
-     (film {:width 1280 :height 720
-            :response :agfachrome-rsx2-200cd
-            :display-interval 5 :halt-spp 1000})
+     (film
+      {:width 1280 :height 720
+       :response :agfachrome-rsx2-200cd
+       :display-interval 5 :halt-spp 1000})
+
      ;; tonemap config (must be given after film)
-     (tonemap-linear {:iso 100 :exposure 0.5 :f-stop 8 :gamma 2.2})
+     (tonemap-linear
+      {:iso 100 :exposure 0.5 :f-stop 8 :gamma 2.2})
 
      ;; define medium with milky consistency (used for material below)
      (volume
       :inside {:type :clear :absorb [0.97 0.8 0.7] :abs-depth 0.2 :ior 2.04})
+
      ;; semi-translucent material w/ above medium as interior
      (material-matte-translucent
       :milk {:interior :inside :reflect [0.3 0.3 0.3] :transmit [0.8 0.7 0.6]})
@@ -110,6 +116,7 @@ Double click the LXS file to launch in Luxrender.
       :room {:material :white
              :tx {:translate [0 0 8] :scale 16 :rz 45}
              :mesh (-> (a/aabb 1) (g/center) (g/as-mesh))})
+
      ;; 16x16 grid of boxes
      ;; takes a single rect, subdivides it into 256 smaller rects
      ;; then extrudes each individually as walled mesh
@@ -153,6 +160,7 @@ This project is open source and licensed under the [[http://www.apache.org/licen
 #+BEGIN_SRC clojure :exports none :noweb-ref version
 0.3.0-SNAPSHOT
 #+END_SRC
+
 #+BEGIN_SRC clojure :exports none :noweb-ref project-url
 https://github.com/thi-ng/luxor
 #+END_SRC
@@ -170,6 +178,10 @@ https://github.com/thi-ng/luxor
 **** [[https://github.com/thi-ng/geom][thi.ng/geom-types]]
 #+BEGIN_SRC clojure :noweb-ref dep-geom
 [thi.ng/geom-types "0.3.0-SNAPSHOT"]
+#+END_SRC
+**** [[https://github.com/thi-ng/geom][thi.ng/geom-meshops]]
+#+BEGIN_SRC clojure :noweb-ref dep-geom
+[thi.ng/geom-meshops "0.3.0-SNAPSHOT"]
 #+END_SRC
 **** [[https://github.com/thi-ng/common][thi.ng/common]]
 #+BEGIN_SRC clojure :noweb-ref dep-common
