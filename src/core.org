@@ -32,7 +32,7 @@
                       (g/rotate-z (->radians rz)))
                   mat))
           mat (if scale (g/scale mat scale) mat)]
-      (g/transpose mat)))
+      mat))
 
   (defn- transform-common
     [scene {:keys [matrix] :as tx}]
