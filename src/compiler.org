@@ -209,7 +209,7 @@
           stream-fn (get-in scene [:__config :mesh-streamer])]
       (when __mesh
         (with-open [out (stream-fn id path)]
-          (export-fn out __mesh)))
+          (export-fn out (g/tessellate __mesh))))
       (luxentity scene "Shape" type (assoc opts :filename [:string path]))))
 
   (defmethod emit :plymesh
@@ -237,6 +237,7 @@
     (:require
      [thi.ng.luxor.config :as conf]
      [thi.ng.luxor.color :as col]
+     [thi.ng.geom.core :as g]
      [thi.ng.geom.core.utils :as gu]
      [thi.ng.geom.mesh.io :as mio]
      [clojure.java.io :as io]))
