@@ -613,7 +613,7 @@
       scene))
 
   (defn- material-common
-    [scene id type base {:keys [alpha interior exterior] :or {alpha 1.0}}]
+    [scene id type base {:keys [alpha interior exterior depends] :or {alpha 1.0}}]
     {:pre [(number? alpha)]}
     (-> scene
         (append
@@ -622,6 +622,7 @@
          (merge base
                 {:__interior interior
                  :__exterior exterior
+                 :__depends  depends
                  :type [:string type]}))
         (inject-alpha-mat id alpha)))
 
@@ -644,7 +645,8 @@
         {:type [:string "mix"]
          :namedmaterial1 [:string (name m1)]
          :namedmaterial2 [:string (name m2)]
-         :amount [:float blend]})))
+         :amount [:float blend]
+         :__depends [m1 m2]})))
 
   (defn material-matte
     [scene id {:keys [diffuse diffuse-hsb sigma]

@@ -5,6 +5,20 @@
 ** Scene serialization
 
 #+BEGIN_SRC clojure :noweb-ref serialize
+  (def scene-entities
+    {:renderer          :renderer
+     :accel             :accelerator
+     :sampler           :sampler
+     :integrator        :integrator
+     :volume-integrator :volume-integrator
+     :filter            :filter
+     :film              :film
+     :camera            :camera
+     :lights            :light
+     :materials         :material
+     :volumes           :volume
+     :geometry          :shape})
+
   (defn- lx-header
     [path & comments]
     (format "# %s\n# generated %s by luxor v%s\n%s\n"
@@ -68,18 +82,7 @@
                          (assoc s k (luxvalues-typed scene type ents))
                          s))
                      (select-keys scene [:comments :includes])
-                     {:renderer :renderer
-                      :accel :accelerator
-                      :sampler :sampler
-                      :integrator :integrator
-                      :volume-integrator :volume-integrator
-                      :filter :filter
-                      :film :film
-                      :camera :camera
-                      :lights :light
-                      :materials :material
-                      :volumes :volume
-                      :geometry :shape})
+                     scene-entities)
              serialized {:lxs (serialize-lxs scene* base-path separate?)}
              serialized (if-let [collector (get-in scene [:__config :mesh-collector])]
                           (merge serialized (collector scene))

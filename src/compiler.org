@@ -29,9 +29,12 @@
            (reduce-kv
             (fn [s k [type v]] (str s indent (emit type scene k v))) ""))))
 
+  ;; TODO remove hardcoded sort order to allow for alt methods (ie. dependency graph)
   (defn luxvalues-typed
     [scene type coll]
-    (reduce (fn [s [k v]] (str s (emit type scene k v))) "" (into (sorted-map) coll)))
+    (reduce
+     (fn [s [k v]] (str s (emit type scene k v)))
+     "" (into (sorted-map) coll)))
 
   (defn luxentity
     [scene type id opts]
@@ -39,16 +42,23 @@
 
   (defn luxtransform
     [tx]
-    (format "Transform [%s]\n"
-            (apply str (interpose " " (map #(format conf/*float-format* %) tx)))))
+    (->> tx
+         (map #(format conf/*float-format* %))
+         (interpose " ")
+         (apply str)
+         (format "Transform [%s]\n")))
+
+  (defn- separator
+    [id type suffix]
+    (format "# -------- %s-%s: %s --------\n" type suffix (name id)))
 
   (defn luxattrib
     [scene id type {:keys [__transform __material]} body]
-    (let [sep-start (format "# -------- %s-start: %s --------\n" type (name id))
-          sep-end (format "# -------- %s-end: %s --------\n" type (name id))
-          inject (str
-                  (when __transform (luxtransform __transform))
-                  (when __material (material-ref scene __material)))]
+    (let [sep-start (separator id type "start")
+          sep-end   (separator id type "end")
+          inject    (str
+                     (when __transform (luxtransform __transform))
+                     (when __material (material-ref scene __material)))]
       (format "%sAttributeBegin\n%s%sAttributeEnd\n%s\n"
               sep-start inject body sep-end)))
 #+END_SRC
@@ -240,6 +250,7 @@
      [thi.ng.geom.core :as g]
      [thi.ng.geom.core.utils :as gu]
      [thi.ng.geom.mesh.io :as mio]
+     [com.stuartsierra.dependency :as dep]
      [clojure.java.io :as io]))
 
   (declare emit)
