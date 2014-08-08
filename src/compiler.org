@@ -15,6 +15,19 @@
 
   (defn filter-opts
     [xs] (->> xs (filter #(not (.startsWith (name (key %)) "__"))) (into {})))
+
+  (defn order-alphabetical
+    [coll] (into (sorted-map) coll))
+
+  (defn order-dependencies
+    [coll]
+    (->> coll
+         (reduce
+          (fn [g [k {deps :__depends}]]
+            (reduce (fn [g d] (dep/depend g k d)) g deps))
+          (dep/graph))
+         (dep/topo-sort)
+         (reduce (fn [acc k] (conj acc [k (coll k)])) [])))
 #+END_SRC
 
 ** Entity transformers
@@ -34,7 +47,7 @@
     [scene type coll]
     (reduce
      (fn [s [k v]] (str s (emit type scene k v)))
-     "" (into (sorted-map) coll)))
+     "" coll))
 
   (defn luxentity
     [scene type id opts]

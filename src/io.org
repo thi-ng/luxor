@@ -5,20 +5,20 @@
 ** Scene serialization
 
 #+BEGIN_SRC clojure :noweb-ref serialize
-  (def scene-entities
-    {:renderer          :renderer
-     :accel             :accelerator
-     :sampler           :sampler
-     :integrator        :integrator
-     :volume-integrator :volume-integrator
-     :filter            :filter
-     :film              :film
-     :camera            :camera
-     :lights            :light
-     :materials         :material
-     :volumes           :volume
-     :geometry          :shape})
-
+  (def scene-entity-types
+    {:renderer          [:renderer]
+     :accel             [:accelerator]
+     :sampler           [:sampler]
+     :integrator        [:integrator]
+     :volume-integrator [:volume-integrator order-alphabetical]
+     :filter            [:filter]
+     :film              [:film]
+     :camera            [:camera]
+     :lights            [:light order-alphabetical]
+     :materials         [:material order-dependencies]
+     :volumes           [:volume order-alphabetical]
+     :geometry          [:shape order-dependencies]})
+  
   (defn- lx-header
     [path & comments]
     (format "# %s\n# generated %s by luxor v%s\n%s\n"
@@ -26,23 +26,23 @@
             (if (seq comments)
               (reduce #(str % "# " %2 "\n") "#\n# Comments:\n" comments)
               "")))
-
+  
   (defn- path-filename
     [path] (.getName (File. ^String path)))
-
+  
   (defn- include-file*
     [path]
     (format "Include \"%s\"\n\n" path))
-
+  
   (defn- include-partials*
     [partials]
     (apply str (map include-file* partials)))
-
+  
   (defn- inject-scene-partial
     [partial path include?]
     (when partial
       (if include? (include-file* path) partial)))
-
+  
   (defn- serialize-lxs
     [scene base-path separate-files?]
     (let [base-name (path-filename base-path)
@@ -66,23 +66,24 @@
                (:lights scene)
                "\nWorldEnd\n")]
       {:path lxs-path :body lxs}))
-
+  
   (defn- serialize-scene-component
     [group path]
     (when group
       {:path path :body (str (lx-header path) group)}))
-
+  
   (defn serialize-scene
     ([scene base-path]
        (serialize-scene scene base-path true))
     ([scene base-path separate?]
        (let [scene* (reduce
-                     (fn [s [k type]]
+                     (fn [s [k [type order]]]
                        (if-let [ents (k scene)]
-                         (assoc s k (luxvalues-typed scene type ents))
+                         (let [ents (if order (order ents) ents)]
+                           (assoc s k (luxvalues-typed scene type ents)))
                          s))
                      (select-keys scene [:comments :includes])
-                     scene-entities)
+                     scene-entity-types)
              serialized {:lxs (serialize-lxs scene* base-path separate?)}
              serialized (if-let [collector (get-in scene [:__config :mesh-collector])]
                           (merge serialized (collector scene))
@@ -158,7 +159,7 @@
   (ns thi.ng.luxor.io
     (:require
      [thi.ng.luxor.config :as conf]
-     [thi.ng.luxor.compiler :refer [luxvalues-typed]]
+     [thi.ng.luxor.compiler :refer [luxvalues-typed order-alphabetical order-dependencies]]
      [thi.ng.luxor.version :refer [version]]
      [clojure.java.io :as io])
     (:import
