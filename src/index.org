@@ -257,19 +257,20 @@ then reload the namespace in the REPL via =(require
 
 #+BEGIN_SRC clojure :tangle ../babel/project.clj :noweb yes :mkdirp yes :padline no
   (defproject thi.ng/luxor "<<version>>"
-    :description
-    "Scene graph compiler, generator & mesh exporter for Luxrender"
-    :url "<<project-url>>"
-    :license {:name "Apache Software License 2.0"
-              :url "http://www.apache.org/licenses/LICENSE-2.0"}
+    :description  "Scene graph compiler, generator & mesh exporter for Luxrender"
+    :url          "<<project-url>>"
+    :license      {:name "Apache Software License 2.0"
+                   :url "http://www.apache.org/licenses/LICENSE-2.0"}
+    :scm          {:name "git"
+                   :url  "https://github.com/thi-ng/luxor"}
     :dependencies [<<dep-clj>>
                    <<dep-geom>>
                    <<dep-common>>
                    <<dep-depgraph>>]
-  
+
     :profiles {:dev {:dependencies [<<dep-criterium>>]
                      :aliases {"cleantest" ["do" "clean," "test"]}}}
-  
+
     :pom-addition [:developers [:developer
                                 [:name "Karsten Schmidt"]
                                 [:url "http://postspectacular.com"]
