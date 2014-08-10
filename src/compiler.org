@@ -21,13 +21,15 @@
 
   (defn order-dependencies
     [coll]
-    (->> coll
-         (reduce
-          (fn [g [k {deps :__depends}]]
-            (reduce (fn [g d] (dep/depend g k d)) g deps))
-          (dep/graph))
-         (dep/topo-sort)
-         (reduce (fn [acc k] (conj acc [k (coll k)])) [])))
+    (let [sorted (->> coll
+                      (reduce
+                       (fn [g [k {deps :__depends}]]
+                         (reduce (fn [g d] (dep/depend g k d)) g deps))
+                       (dep/graph))
+                      (dep/topo-sort)
+                      (reduce (fn [acc k] (conj acc [k (coll k)])) []))
+          s-keys (map first sorted)]
+      (into sorted (apply dissoc coll s-keys))))
 #+END_SRC
 
 ** Entity transformers
