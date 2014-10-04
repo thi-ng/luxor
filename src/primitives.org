@@ -1,0 +1,98 @@
+#+SETUPFILE: "setup.org"
+
+* Namespace: thi.ng.luxor.primitives
+
+** Infinity curve generator
+
+Infinity curves are commonly used as backdrop in light boxes &
+photography studios since their shape prevents any hard edges in terms
+of lighting/shading. This generator function produces parametric
+solids of such meshes and optionally passes them (iteratively) through
+a Catmull-Clark subdivision process.
+
+The function takes the following arguments:
+
+| *Arg*  | *Description*                                                               |
+|--------+-----------------------------------------------------------------------------|
+| w      | width along X axis (centered around 0, default 2.0)                         |
+| h      | height of curve (Y axis, default 1.0)                                       |
+| d      | depth/length of curve (Z axis front @ z = 0, end @ z = -depth, default 2.0) |
+| d1     | depth ratio of initial flat segment (default 0.5)                           |
+| d2     | depth ratio of curve start (default 0.75)                                   |
+| t      | curve wall thickness (default 0.05)                                         |
+| smooth | iteration count for subdivision/smoothing                                   |
+
+Sideview:
+
+  :           +  -
+  :           |  |
+  :           +  h
+  :          /   |
+  : +---+---+    -
+  :     d1  d2
+  :
+  : <--- d --->
+
+#+BEGIN_SRC clojure :noweb-ref inf-curve
+  (defn infinity-curve
+    ([] (infinity-curve 2 1 2 0.5 0.75 0.05 4))
+    ([w h d d1 d2 t smooth]
+       (let [w2 (* w 0.5)
+             w1 (- w2)
+             h2 (* h 0.5)
+             d (- d)
+             d13 (* d d1)
+             d23 (* d d2)
+             nt (g/normalize (:zxy (g/normal (vec2 (- d23 d13) h2)) 0))
+             n0 (vec3 0 (- t) 0)
+             n3 (vec3 0 0 (- t))
+             n1 (-> (vec3 0 -1 0) (g/mix nt) (g/normalize t))
+             n2 (-> (vec3 0 0 -1) (g/mix nt) (g/normalize t))
+             pa (vec3 w1 0 0)   pa' (g/+ pa n0)
+             pb (vec3 w2 0 0)   pb' (g/+ pb n0)
+             pc (vec3 w2 0 d13) pc' (g/+ pc n0)
+             pd (vec3 w1 0 d13) pd' (g/+ pd n0)
+             pe (vec3 w1 0 d23) pe' (g/+ pe n1)
+             pf (vec3 w2 0 d23) pf' (g/+ pf n1)
+             pg (vec3 w1 h2 d)  pg' (g/+ pg n2)
+             ph (vec3 w2 h2 d)  ph' (g/+ ph n2)
+             pi (vec3 w1 h d)   pi' (g/+ pi n3)
+             pj (vec3 w2 h d)   pj' (g/+ pj n3)]
+         (->> [[pa pb pc pd]     ;; top surfaces
+               [pd pc pf pe]
+               [pe pf ph pg]
+               [pg ph pj pi]
+
+               [pb' pa' pd' pc'] ;; bottom surface
+               [pc' pd' pe' pf']
+               [pf' pe' pg' ph']
+               [ph' pg' pi' pj']
+
+               [pb pa pa' pb']   ;; walls
+               [pa pd pd' pa']
+               [pc pb pb' pc']
+               [pd pe pe' pd']
+               [pf pc pc' pf']
+               [pe pg pg' pe']
+               [ph pf pf' ph']
+               [pg pi pi' pg']
+               [pj ph ph' pj']
+               [pi pj pj' pi']]
+              (g/into (gm/gmesh))
+              (iterate sd/catmull-clark)
+              (take (inc smooth))
+              (last)))))
+#+END_SRC
+
+** Complete namespace
+
+#+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/primitives.clj :noweb yes :mkdirp yes :padline no
+  (ns thi.ng.luxor.primitives
+    (:require
+     [thi.ng.geom.core :as g]
+     [thi.ng.geom.core.vector :as v :refer [vec2 vec3 V3Y V3Z]]
+     [thi.ng.geom.gmesh :as gm]
+     [thi.ng.geom.mesh.subdivision :as sd]))
+
+  <<inf-curve>>
+#+END_SRC
