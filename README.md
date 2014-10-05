@@ -10,6 +10,10 @@ open source, physically based and unbiased rendering engine.
 
 See [index.org](src/index.org) for full project details, examples & implementation.
 
+Further examples:
+
+- [scenes.org](src/scenes.org)
+
 ## License
 
 Copyright © 2014 Karsten Schmidt

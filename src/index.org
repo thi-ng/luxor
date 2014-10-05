@@ -297,21 +297,13 @@ symbol =version= holding the version string defined above:
   (def ^:const version "<<version>>")
 #+END_SRC
 
-* Modules
+* Namespaces
 
-*** Note for Github users
-
-The following sections contain links to project modules, but are not
-visibile when reading this file on Github. Please navigate to the
-source files via the normal [[https://github.com/thi-ng/luxor/tree/master/][GH repo browser]].
-
-** Core API
-
-#+INCLUDE: "core.org" :minlevel 2
-#+INCLUDE: "compiler.org" :minlevel 2
-#+INCLUDE: "io.org" :minlevel 2
-#+INCLUDE: "color.org" :minlevel 2
-#+INCLUDE: "config.org" :minlevel 2
+- [[core.org]]
+- [[compiler.org]]
+- [[io.org]]
+- [[color.org]]
+- [[config.org]]
 
 * Tests
 
