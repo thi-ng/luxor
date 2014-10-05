@@ -25,9 +25,9 @@ The following parameters can be configured:
 - Image width/height
 - Infinity curve width
 
-This table gives an overview of the different light groups. Each light
-group can also be manually adjusted during rendering using the
-Luxrender UI:
+This table gives an overview of the different light groups (the code
+to create this scene is further below). Each light group can also be
+manually adjusted during rendering using the Luxrender UI:
 
 | [[../assets/base-scene-top.jpg]] | [[../assets/base-scene-fill.jpg]] | [[../assets/base-scene-combined.jpg]] |
 | top light only               | fill lights only (left/right) | combined                          |
