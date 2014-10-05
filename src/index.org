@@ -304,6 +304,8 @@ symbol =version= holding the version string defined above:
 - [[io.org]]
 - [[color.org]]
 - [[config.org]]
+- [[primitives.org]]
+- [[scenes.org]]
 
 * Tests
 
