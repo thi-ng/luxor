@@ -77,6 +77,19 @@ manually adjusted during rendering using the Luxrender UI:
 
 ** Render scene generator
 
+The =scene-add-mesh= and =scene-add-main-mesh= functions are used to
+add a mesh to a given scene with some optional defaults. The latter
+function is the more useful for the above =base-scene=, since it first
+scales a mesh to fit within a given bounding box and then
+automatically repositions it. The following options are supported:
+
+| *Key*       | *Default*                                                         |
+|-------------+-------------------------------------------------------------------|
+| :bounds     | =(aabb 1)=                                                        |
+| :target     | scene target XZ position, Y defaults to 1/2 of given bounding box |
+| :material   | =:gloss= (defined in =base-scene=)                                |
+| :rx :ry :rz | XYZ rotation angles (in radians)                                  |
+
 #+BEGIN_SRC clojure :noweb-ref generator
   (defn scene-add-mesh
     [scene mesh & [opts]]
@@ -99,6 +112,12 @@ manually adjusted during rendering using the Luxrender UI:
 #+END_SRC
 
 ** Example
+
+This example creates the scene shown in the images above and can be
+run from a REPL in the =/luxor/babel= dir using =(load-file
+"examples/base-scene.clj")=. It creates a subdivided cube mesh and
+adds it to the =base-scene= as main mesh. The exported scene file will
+be written in the same directory, called =base.lxs=.
 
 #+BEGIN_SRC clojure :tangle ../babel/examples/base-scene.clj :mkdirp yes :padline no
   (require
