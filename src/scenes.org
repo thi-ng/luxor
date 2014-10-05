@@ -1,0 +1,139 @@
+#+SETUPFILE: "setup.org"
+
+* Namespace: thi.ng.luxor.scenes
+
+This namespace provides templates & utility functions to simplify the
+process of producing render scenes.
+
+** Infinity curve base scene
+
+The following function creates a basic render scene setup with the
+following entities:
+
+- Low-discrepancy sampler/renderer
+- Bi-directional light integrator
+- Perspective camera w/ DOF
+- Film w/ linear tonemap config (ISO 100, f2.8 @ 0.95s exposure)
+- Two independent light groups: top area light, left/right fillers (also area lights)
+- Infinity curve backdrop
+- Grey matte material
+- Grey glossy material
+
+The following parameters can be configured:
+
+- Camera position, target, up vector, FOV, lens radius
+- Image width/height
+- Infinity curve width
+
+This table gives an overview of the different light groups. Each light
+group can also be manually adjusted during rendering using the
+Luxrender UI:
+
+| [[../assets/base-scene-top.jpg]] | [[../assets/base-scene-fill.jpg]] | [[../assets/base-scene-combined.jpg]] |
+| top light only               | fill lights only (left/right) | combined                          |
+
+#+BEGIN_SRC clojure :noweb-ref lxs
+  (defn base-scene
+    [{:keys [eye target up fov width height bg-width]
+      :or {eye [0 1.25 0]
+           target [0 0.4 -2]
+           up V3Y
+           fov 70
+           bg-width 6.0
+           width 1280
+           height 720}}]
+    (-> (lux/lux-scene)
+        (lux/configure-meshes-as-byte-arrays)
+        (lux/renderer-sampler)
+        (lux/sampler-ld {})
+        (lux/integrator-bidir {})
+        (lux/camera
+         {:eye eye :target target :up up :fov fov
+          :focaldistance (* (g/dist (vec3 eye) target) 0.8)
+          :lens-radius 0.03})
+        (lux/film
+         {:width width :height height
+          :response :agfacolor-optima2-200cd
+          :display-interval 10 :halt-spp 1000})
+        (lux/tonemap-linear
+         {:iso 100 :exposure 0.95 :f-stop 2.8 :gamma 2.2})
+        (lux/material-matte
+         :bg-matte {:diffuse [0.5 0.5 0.5]})
+        (lux/material-matte
+         :basic {:diffuse [0.64 0.622 0.615]})
+        (lux/material-glossy-coating
+         :gloss {:ior :plastic :specular [1 1 1] :base :basic})
+        (lux/light-groups {:top {:gain 0.2} :fill {:gain 0.1}})
+        (lux/area-light
+         :top   {:n [0 -1 0] :size [6 2] :group :top :tx {:translate [0 2 -2] :rx 30}})
+        (lux/area-light
+         :left  {:n [1 0 0] :size 0.5 :group :fill :tx {:translate [-1 1.25 0] :ry 45 :rz -20}})
+        (lux/area-light
+         :right {:n [-1 0 0] :size 0.5 :group :fill :tx {:translate [1 1.25 0] :ry -45 :rz 20}})
+        (lux/ply-mesh
+         :bg    {:material :bg-matte
+                 :mesh (prims/infinity-curve bg-width 2.0 4.0 0.5 0.75 0.05 4)})))
+#+END_SRC
+
+** Render scene generator
+
+#+BEGIN_SRC clojure :noweb-ref generator
+  (defn scene-add-mesh
+    [scene mesh & [opts]]
+    (let [opts (if (:material opts) opts (assoc opts :material :gloss))]
+      (lux/stl-mesh scene (keyword (gensym)) (assoc opts :mesh mesh))))
+
+  (defn scene-add-main-mesh
+    [scene mesh &
+     [{:keys [bounds target material rx ry rz]
+       :or {bounds (a/aabb 1) rx 0 ry 0 rz 0}}]]
+    (let [target-s (-> scene :camera first val :__lookat :target)
+          target   (or target (assoc target-s 1 (:y (g/centroid bounds))))
+          mat      (-> M44
+                       (g/translate target)
+                       (g/rotate-x rx)
+                       (g/rotate-y ry)
+                       (g/rotate-z rz))
+          mesh     (first (tu/fit-all-into-bounds (g/center bounds) [mesh]))]
+      (scene-add-mesh scene mesh {:material material :tx {:matrix mat}})))
+#+END_SRC
+
+** Example
+
+#+BEGIN_SRC clojure :tangle ../babel/examples/base-scene.clj :mkdirp yes :padline no
+  (require
+   '[thi.ng.geom.core :as g]
+   '[thi.ng.geom.aabb :as a]
+   '[thi.ng.geom.mesh.subdivision :as sd]
+   '[thi.ng.luxor.scenes :as scenes]
+   '[thi.ng.luxor.io :as lio])
+
+  (let [mesh (->> (a/aabb 1) (g/as-mesh) (iterate sd/catmull-clark) (take 4) (last))]
+    (-> (scenes/base-scene {:width 640 :height 360})
+        (scenes/scene-add-main-mesh mesh)
+        (lio/serialize-scene "base" false)
+        (lio/export-scene)
+        (dorun)))
+#+END_SRC
+
+** Complete namespace                                              :noexport:
+
+#+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/scenes.clj :noweb yes :mkdirp yes :padline no
+  (ns thi.ng.luxor.scenes
+    (:require
+     [thi.ng.geom.core :as g]
+     [thi.ng.geom.core.vector :refer [vec3 V3Y]]
+     [thi.ng.geom.core.matrix :refer [M44]]
+     [thi.ng.geom.types.utils :as tu]
+     [thi.ng.geom.aabb :as a]
+     [thi.ng.geom.mesh.subdivision :as sd]
+     [thi.ng.luxor.core :as lux]
+     [thi.ng.luxor.io :as lio]
+     [thi.ng.luxor.primitives :as prims]
+     [thi.ng.common.math.core :as m :refer [*eps* TWO_PI PI HALF_PI]]))
+
+  <<lxs>>
+
+  <<generator>>  
+#+END_SRC
+
