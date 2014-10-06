@@ -33,6 +33,11 @@ Sideview:
   :               
   : <--- d --->
 
+| [[../assets/curve-0.jpg]] | [[../assets/curve-1.jpg]] |
+| no subdiv             | 1 iteration           |
+| [[../assets/curve-2.jpg]] | [[../assets/curve-3.jpg]] |
+| 2 iterations          | 3 iterations          |
+
 #+BEGIN_SRC clojure :noweb-ref inf-curve
   (defn infinity-curve
     ([] (infinity-curve 2 1 2 0.5 0.75 0.05 4))
