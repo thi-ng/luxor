@@ -33,6 +33,11 @@ Sideview:
   :               
   : <--- d --->
 
+*** Subdivision steps
+
+The table illustrates the impact of different smooth steps applied to
+the generated curve mesh.
+
 | [[../assets/curve-0.jpg]] | [[../assets/curve-1.jpg]] |
 | no subdiv             | 1 iteration           |
 | [[../assets/curve-2.jpg]] | [[../assets/curve-3.jpg]] |
