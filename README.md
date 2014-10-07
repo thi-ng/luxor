@@ -10,9 +10,19 @@ open source, physically based and unbiased rendering engine.
 
 See [index.org](src/index.org) for full project details, examples & implementation.
 
-Further examples:
+## Further examples
 
-- [scenes.org](src/scenes.org)
+- [Base scene setup](src/scenes.org)
+- [Torus knot tests](https://github.com/thi-ng/geom/blob/master/geom-types/src/ptf.org#luxor-torus-knot-examples)
+- [Morphogen examples](https://github.com/thi-ng/morphogen/blob/develop/src/examples.org)
+- [Talk slides @ Retune 2014](http://media.thi.ng/2014/talks/we-are-the-incanters/index.html)
+
+## Projects using luxor
+
+- [Morphogen](http://thi.ng/morphogen)
+- [Co(de)Factory](https://github.com/postspectacular/devart-codefactory)
+
+(Please send PR if you want your project included here)
 
 ## License
 
