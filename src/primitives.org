@@ -26,17 +26,20 @@ Sideview:
 
   :           +  -
   :           |  |
-  :           +  h
+  :           +  h (Y axis)
   :          /   |
   : +---+---+    -
   :     d1  d2
   :               
   : <--- d --->
+  :  (-Z axis)
 
 *** Subdivision steps
 
 The table illustrates the impact of different smooth steps applied to
-the generated curve mesh.
+the generated curve mesh. The spheroid placed on the curve is of
+course not part of the curve mesh and only used to improve depth
+perception.
 
 | [[../assets/curve-0.jpg]] | [[../assets/curve-1.jpg]] |
 | no subdiv             | 1 iteration           |

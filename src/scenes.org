@@ -49,7 +49,7 @@ manually adjusted during rendering using the Luxrender UI:
         (lux/integrator-bidir {})
         (lux/camera
          {:eye eye :target target :up up :fov fov
-          :focaldistance (* (g/dist (vec3 eye) target) 0.8)
+          :focal-dist (* (g/dist (vec3 eye) target) 0.8)
           :lens-radius 0.03})
         (lux/film
          {:width width :height height
@@ -63,7 +63,7 @@ manually adjusted during rendering using the Luxrender UI:
          :basic {:diffuse [0.64 0.622 0.615]})
         (lux/material-glossy-coating
          :gloss {:ior :plastic :specular [1 1 1] :base :basic})
-        (lux/light-groups {:top {:gain 0.2} :fill {:gain 0.1}})
+        (lux/light-groups {:top {:gain 0.15} :fill {:gain 0.1}})
         (lux/area-light
          :top   {:n [0 -1 0] :size [6 2] :group :top :tx {:translate [0 2 -2] :rx 30}})
         (lux/area-light
@@ -91,15 +91,15 @@ automatically repositions it. The following options are supported:
 | :rx :ry :rz | XYZ rotation angles (in radians)                                  |
 
 #+BEGIN_SRC clojure :noweb-ref generator
-  (defn scene-add-mesh
+  (defn add-mesh
     [scene mesh & [opts]]
     (let [opts (if (:material opts) opts (assoc opts :material :gloss))]
-      (lux/stl-mesh scene (keyword (gensym)) (assoc opts :mesh mesh))))
+      (lux/stl-mesh scene (or (:id opts) (keyword (gensym))) (assoc opts :mesh mesh))))
 
-  (defn scene-add-main-mesh
+  (defn add-main-mesh
     [scene mesh &
-     [{:keys [bounds target material rx ry rz]
-       :or {bounds (a/aabb 1) rx 0 ry 0 rz 0}}]]
+     [{:keys [id bounds target material rx ry rz]
+       :or {id (keyword (gensym)) bounds (a/aabb 1) rx 0 ry 0 rz 0}}]]
     (let [target-s (-> scene :camera first val :__lookat :target)
           target   (or target (assoc target-s 1 (:y (g/centroid bounds))))
           mat      (-> M44
@@ -108,7 +108,7 @@ automatically repositions it. The following options are supported:
                        (g/rotate-y ry)
                        (g/rotate-z rz))
           mesh     (first (tu/fit-all-into-bounds (g/center bounds) [mesh]))]
-      (scene-add-mesh scene mesh {:material material :tx {:matrix mat}})))
+      (add-mesh scene mesh {:id id :material material :tx {:matrix mat}})))
 #+END_SRC
 
 ** Example
@@ -129,7 +129,7 @@ be written in the same directory, called =base.lxs=.
 
   (let [mesh (->> (a/aabb 1) (g/as-mesh) (iterate sd/catmull-clark) (take 4) (last))]
     (-> (scenes/base-scene {:width 640 :height 360})
-        (scenes/scene-add-main-mesh mesh)
+        (scenes/add-main-mesh mesh)
         (lio/serialize-scene "base" false)
         (lio/export-scene)
         (dorun)))
