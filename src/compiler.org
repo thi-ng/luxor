@@ -13,6 +13,8 @@
        (when __interior (format "Interior \"%s\"\n" (name __interior)))
        (when __exterior (format "Exterior \"%s\"\n" (name __exterior))))))
 
+  (defn arg-name [x] (str/replace (name x) "-" " "))
+ 
   (defn filter-opts
     [xs] (->> xs (filter #(not (.startsWith (name (key %)) "__"))) (into {})))
 
@@ -41,7 +43,7 @@
            (filter-opts)
            (into (sorted-map))
            (reduce-kv
-            (fn [s k [type v]] (str s indent (emit type scene k v))) ""))))
+            (fn [s k [type v]] (str s indent (emit type scene (arg-name k) v))) ""))))
 
   ;; TODO remove hardcoded sort order to allow for alt methods (ie. dependency graph)
   (defn luxvalues-typed
@@ -93,50 +95,55 @@
 
   (defmethod emit :float-vec
     [_ _ id xs]
-    (format "\"float %s\" [%s]\n"
-            (name id)
-            (apply str (interpose " " (map #(format conf/*float-format* (float %)) xs)))))
+    (->> (map #(format conf/*float-format* (float %)) xs)
+         (interpose " ")
+         (apply str)
+         (format "\"float %s\" [%s]\n" id)))
 
   (defmethod emit :int
-    [_ _ id x] (format "\"integer %s\" [%d]\n" (name id) (int x)))
+    [_ _ id x] (format "\"integer %s\" [%d]\n" id (int x)))
 
   (defmethod emit :int-vec
     [_ _ id xs]
-    (format "\"integer %s\" [%s]\n"
-            (name id)
-            (apply str (interpose " " (map #(format "%d" (int %)) xs)))))
+    (->> (map #(format "%d" (int %)) xs)
+         (interpose " ")
+         (apply str)
+         (format "\"integer %s\" [%s]\n" id)))
 
   (defmethod emit :point-vec
     [_ _ id xs]
-    (format "\"point %s\" [%s]\n"
-            (name id)
-            (apply str (interpose " " (map #(format conf/*float-format* (float %))
-                                           (mapcat identity xs))))))
+    (->> (mapcat identity xs)
+         (map #(format conf/*float-format* (float %)))
+         (interpose " ")
+         (apply str)
+         (format "\"point %s\" [%s]\n" id)))
 
   (defmethod emit :bool
-    [_ _ id x] (format "\"bool %s\" [\"%b\"]\n" (name id) (if x true false)))
+    [_ _ id x] (format "\"bool %s\" [\"%b\"]\n" id (if x true false)))
 
   (defmethod emit :string
-    [_ _ id x] (format "\"string %s\" [\"%s\"]\n" (name id) x))
+    [_ _ id x] (format "\"string %s\" [\"%s\"]\n" id x))
 
   (defmethod emit :string-vec
     [_ _ id xs]
-    (format "\"string %s\" [%s]\n"
-            (name id)
-            (apply str (interpose " " (map #(format "\"%s\"" %) xs)))))
+    (->> (map #(format "\"%s\"" %) xs)
+         (interpose " ")
+         (apply str)
+         (format "\"string %s\" [%s]\n" id)))
+
+  (defmethod emit :tex-ref
+    [_ _ id x] (format "\"texture %s\" [\"%s\"]\n" id x))
 
   (defmethod emit :color
     [_ _ id [r g b]]
     (let [ff conf/*float-format*]
-      (format (str "\"color %s\" [" ff " " ff " " ff "]\n")
-              (name id) (float r) (float g) (float b))))
+      (format (str "\"color %s\" [" ff " " ff " " ff "]\n") id (float r) (float g) (float b))))
 
   (defmethod emit :log-color
     [_ _ id [col scale depth]]
     (let [[r g b] (col/scaled-absorption-color-at-depth col scale depth)
           ff conf/*float-format*]
-      (format
-       (str "\"color %s\" [" ff " " ff " " ff "]\n") (name id) r g b)))
+      (format (str "\"color %s\" [" ff " " ff " " ff "]\n") id r g b)))
 #+END_SRC
 
 *** Scene entities
@@ -202,6 +209,14 @@
        (format (str "LookAt " ff3 ff3 ff3 "\n\n") ex ey ez tx ty tz ux uy uz)
        (luxentity scene "Camera" id opts))))
 
+  (defmethod emit :texture
+    [_ scene id {:keys [__type] :as opts}]
+    (let [tval (__type opts)]
+      (str
+       (format "Texture \"%s\" \"%s\" \"%s\"\n" (name id) (subs (name __type) 2) tval)
+       (luxvalues scene opts)
+       "\n")))
+
   (defmethod emit :material
     [_ scene id opts]
     (luxentity scene "MakeNamedMaterial" id opts))
@@ -265,6 +280,7 @@
      [thi.ng.geom.core.utils :as gu]
      [thi.ng.geom.mesh.io :as mio]
      [com.stuartsierra.dependency :as dep]
+     [clojure.string :as str]
      [clojure.java.io :as io]))
 
   (declare emit)

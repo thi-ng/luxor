@@ -461,16 +461,19 @@
     (reduce #(apply light-group % %2) scene groups))
 
   (defn- light-common
-    [scene {:keys [group color gain power efficacy importance tx material hidden?]
+    [scene {:keys [group color gain power efficacy importance tx texture material hidden?]
             :or {group "default" color [1.0 1.0 1.0]
                  gain 1.0 efficacy 17.0 power 100.0 importance 1.0 hidden? false}}]
-    {:__parent (name group)
-     :__material (or material (when hidden? "__hidden__"))
-     :L [:color color]
-     :gain [:float gain]
-     :power [:float power]
-     :efficacy [:float efficacy]
-     :importance [:float importance]})
+    (let [opts {:__parent (name group)
+                :__material (or material (when hidden? "__hidden__"))
+                :gain [:float gain]
+                :power [:float power]
+                :efficacy [:float efficacy]
+                :importance [:float importance]}]
+      (cond
+       texture (assoc opts :L [:tex-ref (name texture)])
+       color   (assoc opts :L [:color color])
+       :else   opts)))
 
   (defn area-light
     [scene id {:keys [samples mesh mesh-type export-path p n size smooth tx]
@@ -593,6 +596,22 @@
     [scene id]
     {:pre [(conf/volume-integrators id)]}
     (append-singleton scene :volume-integrator id {}))
+#+END_SRC
+
+*** Textures
+
+#+BEGIN_SRC clojure :noweb-ref textures
+  ;; Texture NAME color|float|spectrum TYPE <values>
+  ;; Texture "SolidColor" "color" "constant" "color value" [1.000 0.910 0.518]
+  ;; Texture "LampTemp" "color" "blackbody" "float temperature" [6500]
+
+(defn texture-black-body
+  [scene id {:keys [temperature]}]
+  (append
+   scene :textures id
+   {:__type      :__color
+    :__color     "blackbody"
+    :temperature [:float temperature]}))
 #+END_SRC
 
 *** Materials
@@ -775,6 +794,8 @@
   <<lights>>
 
   <<meshes>>
+
+  <<textures>>
 
   <<materials>>
 

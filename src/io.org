@@ -14,6 +14,7 @@
      :filter            [:filter]
      :film              [:film]
      :camera            [:camera]
+     :textures          [:texture order-dependencies]
      :lights            [:light order-alphabetical]
      :materials         [:material order-dependencies]
      :volumes           [:volume order-alphabetical]
@@ -60,6 +61,7 @@
                (:camera scene)
                "WorldBegin\n\n"
                (include-partials* (get-in scene [:includes :partials]))
+               (:textures scene)
                (inject-scene-partial (:volumes scene) (str base-name ".lxv") separate-files?)
                (inject-scene-partial (:materials scene) (str base-name ".lxm") separate-files?)
                (inject-scene-partial (:geometry scene) (str base-name ".lxo") separate-files?)
