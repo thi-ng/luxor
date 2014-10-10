@@ -185,7 +185,7 @@ https://github.com/thi-ng/luxor
 #+END_SRC
 **** [[https://github.com/thi-ng/common][thi.ng/common]]
 #+BEGIN_SRC clojure :noweb-ref dep-common
-[thi.ng/common "0.2.0-SNAPSHOT"]
+[thi.ng/common "0.3.0-SNAPSHOT"]
 #+END_SRC
 **** [[https://github.com/stuartsierra/dependency][com.stuartsierra/dependency]]
 #+BEGIN_SRC clojure :noweb-ref dep-depgraph
@@ -260,18 +260,20 @@ then reload the namespace in the REPL via =(require
     :description  "Scene graph compiler, generator & mesh exporter for Luxrender"
     :url          "<<project-url>>"
     :license      {:name "Apache Software License 2.0"
-                   :url "http://www.apache.org/licenses/LICENSE-2.0"}
+                   :url "http://www.apache.org/licenses/LICENSE-2.0"
+                   :distribution :repo}
     :scm          {:name "git"
                    :url  "https://github.com/thi-ng/luxor"}
+
     :dependencies [<<dep-clj>>
                    <<dep-geom>>
                    <<dep-common>>
                    <<dep-depgraph>>]
 
     :profiles {:dev {:dependencies [<<dep-criterium>>]
-                     :aliases {"cleantest" ["do" "clean," "test"]}}}
+                     :aliases {"cleantest" ["do" "clean" "test"]}}}
 
-    :pom-addition [:developers [:developer
+    :pom-addition [:developers [:developer {:id "toxi"}
                                 [:name "Karsten Schmidt"]
                                 [:url "http://postspectacular.com"]
                                 [:timezone "0"]]])
@@ -294,7 +296,7 @@ symbol =version= holding the version string defined above:
 #+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/version.clj :noweb yes :mkdirp yes :padline no :exports none
   (ns thi.ng.luxor.version)
 
-  (def ^:const version "<<version>>")
+  (def version "<<version>>")
 #+END_SRC
 
 * Namespaces
