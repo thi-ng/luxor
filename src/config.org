@@ -8,16 +8,16 @@
   ;; References:
   ;; http://www.luxrender.net/wiki/Scene_file_format_dev
 
-  (def ^:const mesh-types            {:inline :trimesh :ply :plymesh :stl :stlmesh})
-  (def ^:const volume-types          #{:clear :homogenous :heterogenous})
-  (def ^:const volume-integrators    #{:none :single :emission :multi})
-  (def ^:const sppm-accelerators     #{:hashgrid :hybridhashgrid :kdtree :parallelhashgrid})
-  (def ^:const pixel-samplers        #{:hilbert :liner :tile :vegas})
-  (def ^:const photon-samplers       #{:halton :amc})
-  (def ^:const light-strategies      #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
-  (def ^:const light-path-strategies #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
-  (def ^:const rr-strategies         #{:none :efficiency :probability})
-  (def ^:const render-modes          #{:directlighting})
+  (def mesh-types            {:inline :trimesh :ply :plymesh :stl :stlmesh})
+  (def volume-types          #{:clear :homogenous :heterogenous})
+  (def volume-integrators    #{:none :single :emission :multi})
+  (def sppm-accelerators     #{:hashgrid :hybridhashgrid :kdtree :parallelhashgrid})
+  (def pixel-samplers        #{:hilbert :liner :tile :vegas})
+  (def photon-samplers       #{:halton :amc})
+  (def light-strategies      #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
+  (def light-path-strategies #{:auto :one :all :importance :powerimp :allpowerimp :logpowerimp})
+  (def rr-strategies         #{:none :efficiency :probability})
+  (def render-modes          #{:directlighting})
 
   (def ^:dynamic *indent*         2)
   (def ^:dynamic *degrees*        true)
@@ -47,7 +47,7 @@ Python film response presets into a Clojure map.
 
 *** Generated presets
 #+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/presets.clj
-  (def ^:const film-response-presets
+  (def film-response-presets
     {:advantix-100cd "Advantix_100CD"
      :advantix-200cd "Advantix_200CD"
      :advantix-400cd "Advantix_400CD"
@@ -100,7 +100,7 @@ Python film response presets into a Clojure map.
 ** Refraction indices of common materials
 
 #+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/presets.clj
-  (def ^:const ior-categories
+  (def ior-categories
     {:gases       {:air 1.000293
                    :air-stp 1.0002926
                    :carbon-dioxide 1.00045
