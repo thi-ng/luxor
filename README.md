@@ -12,6 +12,7 @@ See [index.org](src/index.org) for full project details, examples & implementati
 
 ## Further examples
 
+- [SAC workshop 2014](https://github.com/learn-postspectacular/sac-workshop-2014)
 - [Base scene setup](src/scenes.org)
 - [Torus knot tests](https://github.com/thi-ng/geom/blob/master/geom-types/src/ptf.org#luxor-torus-knot-examples)
 - [Morphogen examples](https://github.com/thi-ng/morphogen/blob/develop/src/examples.org)
