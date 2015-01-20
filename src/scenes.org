@@ -15,7 +15,7 @@ following entities:
 - Perspective camera w/ DOF
 - Film w/ linear tonemap config (ISO 100, f2.8 @ 0.95s exposure)
 - Two independent light groups: top area light, left/right fillers (also area lights)
-- Infinity curve backdrop
+- [[primitives.org][Infinity curve backdrop]]
 - Grey matte material
 - Grey glossy material
 

@@ -8,6 +8,7 @@
   (ns thi.ng.luxor.test.core
     (:require [clojure.test :refer :all]))
 #+END_SRC
+
 ** TODO Test constants
 
 #+BEGIN_SRC clojure :tangle ../babel/test/thi/ng/luxor/test/core.clj

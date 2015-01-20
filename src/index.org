@@ -36,7 +36,6 @@ order to customize defaults and obtain high quality renders.
   ;; TODO some magic
 #+END_SRC
 
-
 The code below is responsible for the example image above. To run,
 just clone this repo, tangle all files (see below), launch a REPL and
 load the example:
@@ -155,9 +154,9 @@ Double click the LXS file to launch in Luxrender.
 
 This project is open source and licensed under the [[http://www.apache.org/licenses/LICENSE-2.0][Apache Software License 2.0]].
 
-** Injected properties                                             :noexport:
+** Injected properties
 
-#+BEGIN_SRC clojure :exports none :noweb-ref version
+#+BEGIN_SRC clojure :noweb-ref version
 0.3.0-SNAPSHOT
 #+END_SRC
 
@@ -185,7 +184,7 @@ https://github.com/thi-ng/luxor
 #+END_SRC
 **** [[https://github.com/thi-ng/common][thi.ng/common]]
 #+BEGIN_SRC clojure :noweb-ref dep-common
-[thi.ng/common "0.3.0-SNAPSHOT"]
+[thi.ng/common "0.3.0"]
 #+END_SRC
 **** [[https://github.com/stuartsierra/dependency][com.stuartsierra/dependency]]
 #+BEGIN_SRC clojure :noweb-ref dep-depgraph
@@ -301,14 +300,15 @@ symbol =version= holding the version string defined above:
 
 * Namespaces
 
-- [[core.org]]
-- [[compiler.org]]
-- [[io.org]]
-- [[color.org]]
-- [[config.org]]
-- [[primitives.org]]
-- [[scenes.org]]
+- [[./core.org][thi.ng.luxor.core]]
+- [[./compiler.org][thi.ng.luxor.compiler]]
+- [[./io.org][thi.ng.luxor.io]]
+- [[./color.org][thi.ng.luxor.color]]
+- [[./config.org][thi.ng.luxor.config & presets]]
+- [[./primitives.org][thi.ng.luxor.primitives]]
+- [[./scenes.org][thi.ng.luxor.scenes]]
 
 * Tests
 
-#+INCLUDE: "../test/core.org" :minlevel 2
+- [[../test/core.org][thi.ng.luxor.test.core]]
+

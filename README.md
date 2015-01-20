@@ -27,6 +27,6 @@ See [index.org](src/index.org) for full project details, examples & implementati
 
 ## License
 
-Copyright © 2014 Karsten Schmidt
+Copyright © 2013 - 2015 Karsten Schmidt
 
 Distributed under the [Apache Software License 2.0](http://www.apache.org/licenses/LICENSE-2.0).
