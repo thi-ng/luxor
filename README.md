@@ -25,6 +25,12 @@ See [index.org](src/index.org) for full project details, examples & implementati
 
 (Please send PR if you want your project included here)
 
+## Leiningen coordinates
+
+```clj
+[thi.ng/luxor "0.3.0"]
+```
+
 ## License
 
 Copyright © 2013 - 2015 Karsten Schmidt

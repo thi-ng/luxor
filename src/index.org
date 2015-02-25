@@ -3,7 +3,6 @@
 
 * About the project
 
-
 [[../assets/test-scene.jpg]]
 
 ** Overview
@@ -150,14 +149,27 @@ Double click the LXS file to launch in Luxrender.
     (println "done."))
 #+END_SRC
 
-** License
 
-This project is open source and licensed under the [[http://www.apache.org/licenses/LICENSE-2.0][Apache Software License 2.0]].
+* Namespaces
+
+- [[./core.org][thi.ng.luxor.core]]
+- [[./compiler.org][thi.ng.luxor.compiler]]
+- [[./io.org][thi.ng.luxor.io]]
+- [[./color.org][thi.ng.luxor.color]]
+- [[./config.org][thi.ng.luxor.config & presets]]
+- [[./primitives.org][thi.ng.luxor.primitives]]
+- [[./scenes.org][thi.ng.luxor.scenes]]
+
+* Tests
+
+- [[../test/core.org][thi.ng.luxor.test.core]]
+
+* Project definition
 
 ** Injected properties
 
 #+BEGIN_SRC clojure :noweb-ref version
-0.3.0-SNAPSHOT
+0.3.0
 #+END_SRC
 
 #+BEGIN_SRC clojure :exports none :noweb-ref project-url
@@ -170,17 +182,9 @@ https://github.com/thi-ng/luxor
 #+BEGIN_SRC clojure :noweb-ref dep-clj
 [org.clojure/clojure "1.6.0"]
 #+END_SRC
-**** [[https://github.com/thi-ng/geom][thi.ng/geom-core]]
+**** [[https://github.com/thi-ng/geom][thi.ng/geom]]
 #+BEGIN_SRC clojure :noweb-ref dep-geom
-[thi.ng/geom-core "0.3.0-SNAPSHOT"]
-#+END_SRC
-**** [[https://github.com/thi-ng/geom][thi.ng/geom-types]]
-#+BEGIN_SRC clojure :noweb-ref dep-geom
-[thi.ng/geom-types "0.3.0-SNAPSHOT"]
-#+END_SRC
-**** [[https://github.com/thi-ng/geom][thi.ng/geom-meshops]]
-#+BEGIN_SRC clojure :noweb-ref dep-geom
-[thi.ng/geom-meshops "0.3.0-SNAPSHOT"]
+[thi.ng/geom "0.0-715"]
 #+END_SRC
 **** [[https://github.com/thi-ng/common][thi.ng/common]]
 #+BEGIN_SRC clojure :noweb-ref dep-common
@@ -196,23 +200,10 @@ https://github.com/thi-ng/luxor
 [criterium "0.4.3"]
 #+END_SRC
 
-** Contributors
-
-| *Name*          | *Role*                          | *Website*                  |
-|-----------------+---------------------------------+----------------------------|
-| [[k@thi.ng][Karsten Schmidt]] | initiator & principal developer | http://postspectacular.com |
-
-** Release history
-
-| *Version*      | *Released* | *Description*                      | *Lein coordinates*                | *Tagged Github URL* | *Availability* |
-|----------------+------------+------------------------------------+-----------------------------------+---------------------+----------------|
-| 0.3.0-SNAPSHOT | pending    | Project restructure, API additions | =[thi.ng/luxor "0.3.0-SNAPSHOT"]= |                     | [[https://clojars.org/thi.ng/luxor/versions/0.3.0-SNAPSHOT][Clojars]]        |
-| 0.2.0          | 2014-03-10 | 1st public release                 | =[thi.ng/luxor "0.2.0"]=          | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               | [[https://clojars.org/thi.ng/luxor/versions/0.2.0][Clojars]]        |
-
 ** Leiningen coordinates
 
 #+BEGIN_SRC clojure :noweb yes :noweb-ref lein-coords
-  [thi.ng/luxor <<version>>]
+  [thi.ng/luxor "0.3.0"]
 #+END_SRC
 
 ** Building this project
@@ -272,7 +263,7 @@ then reload the namespace in the REPL via =(require
     :profiles {:dev {:dependencies [<<dep-criterium>>]
                      :aliases {"cleantest" ["do" "clean" "test"]}}}
 
-    :pom-addition [:developers [:developer {:id "toxi"}
+    :pom-addition [:developers [:developer
                                 [:name "Karsten Schmidt"]
                                 [:url "http://postspectacular.com"]
                                 [:timezone "0"]]])
@@ -298,17 +289,19 @@ symbol =version= holding the version string defined above:
   (def version "<<version>>")
 #+END_SRC
 
-* Namespaces
+** Release history
 
-- [[./core.org][thi.ng.luxor.core]]
-- [[./compiler.org][thi.ng.luxor.compiler]]
-- [[./io.org][thi.ng.luxor.io]]
-- [[./color.org][thi.ng.luxor.color]]
-- [[./config.org][thi.ng.luxor.config & presets]]
-- [[./primitives.org][thi.ng.luxor.primitives]]
-- [[./scenes.org][thi.ng.luxor.scenes]]
+| *Version* | *Released* | *Description*                      | *Lein coordinates*       | *Tagged Github URL* |
+|-----------+------------+------------------------------------+--------------------------+---------------------|
+|     0.3.0 | 2015-02-25 | Project restructure, API additions | =[thi.ng/luxor "0.3.0"]= | [[https://github.com/thi-ng/luxor/tree/0.3.0][0.3.0]]               |
+|     0.2.0 | 2014-03-10 | 1st public release                 | =[thi.ng/luxor "0.2.0"]= | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               |
 
-* Tests
+** Contributors
 
-- [[../test/core.org][thi.ng.luxor.test.core]]
+| *Name*          | *Role*                          | *Website*                  |
+|-----------------+---------------------------------+----------------------------|
+| [[k@thi.ng][Karsten Schmidt]] | initiator & principal developer | http://postspectacular.com |
 
+** License
+
+This project is open source and licensed under the [[http://www.apache.org/licenses/LICENSE-2.0][Apache Software License 2.0]].
