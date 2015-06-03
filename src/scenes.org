@@ -149,11 +149,9 @@ be written in the same directory, called =base.lxs=.
      [thi.ng.geom.core.matrix :refer [M44]]
      [thi.ng.geom.types.utils :as tu]
      [thi.ng.geom.aabb :as a]
-     [thi.ng.geom.mesh.subdivision :as sd]
      [thi.ng.luxor.core :as lux]
      [thi.ng.luxor.io :as lio]
-     [thi.ng.luxor.primitives :as prims]
-     [thi.ng.math.core :as m :refer [*eps* TWO_PI PI HALF_PI]]))
+     [thi.ng.luxor.primitives :as prims]))
 
   <<lxs>>
 
