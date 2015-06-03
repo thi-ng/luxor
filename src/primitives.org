@@ -56,7 +56,7 @@ perception.
              d (- d)
              d13 (* d d1)
              d23 (* d d2)
-             nt (g/normalize (:zxy (g/normal (vec2 (- d23 d13) h2)) 0))
+             nt (g/normalize (vec3 0 (- h2) (- d23 d13)))
              n0 (vec3 0 (- t) 0)
              n3 (vec3 0 0 (- t))
              n1 (-> (vec3 0 -1 0) (g/mix nt) (g/normalize t))
