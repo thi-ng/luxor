@@ -180,15 +180,15 @@ https://github.com/thi-ng/luxor
 *** Runtime
 **** [[https://github.com/clojure/clojure][Clojure]]
 #+BEGIN_SRC clojure :noweb-ref dep-clj
-[org.clojure/clojure "1.6.0"]
+[org.clojure/clojure "1.7.0-RC1"]
 #+END_SRC
 **** [[https://github.com/thi-ng/geom][thi.ng/geom]]
 #+BEGIN_SRC clojure :noweb-ref dep-geom
-[thi.ng/geom "0.0-715"]
+[thi.ng/geom "0.0.815"]
 #+END_SRC
 **** [[https://github.com/thi-ng/common][thi.ng/common]]
 #+BEGIN_SRC clojure :noweb-ref dep-common
-[thi.ng/common "0.3.0"]
+[thi.ng/common "0.3.1"]
 #+END_SRC
 **** [[https://github.com/stuartsierra/dependency][com.stuartsierra/dependency]]
 #+BEGIN_SRC clojure :noweb-ref dep-depgraph
@@ -203,7 +203,7 @@ https://github.com/thi-ng/luxor
 ** Leiningen coordinates
 
 #+BEGIN_SRC clojure :noweb yes :noweb-ref lein-coords
-  [thi.ng/luxor "0.3.0"]
+  [thi.ng/luxor "0.3.1"]
 #+END_SRC
 
 ** Building this project
