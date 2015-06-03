@@ -230,9 +230,9 @@
 
   (defmethod emit :trimesh
     [_ scene id {:keys [__mesh]}]
-    (let [verts (vec (keys (:vertices __mesh)))
+    (let [verts (vec (g/vertices __mesh))
           vidx (zipmap verts (range))
-          indices (->> (:faces __mesh)
+          indices (->> (g/faces __mesh)
                        (mapcat gu/tessellate-with-first)
                        (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)])))]
       (luxentity
