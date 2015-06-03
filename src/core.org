@@ -589,7 +589,7 @@
      scene :volumes id
      {:__type type
       :fresnel [:float (resolve-ior ior)]
-      :absorption [:log-color [(if absorb-hsb (col/hsb->rgb absorb-hsb) absorb)
+      :absorption [:log-color [(if absorb-hsb (col/hsv->rgb absorb-hsb) absorb)
                                abs-scale abs-depth]]}))
 
   (defn volume-integrator
@@ -686,7 +686,7 @@
       (append
        scene :materials id
        {:type         [:string "glossycoating"]
-        :Ks           [:color (if specular-hsb (col/hsb->rgb specular-hsb) specular)]
+        :Ks           [:color (if specular-hsb (col/hsv->rgb specular-hsb) specular)]
         :index        [:float (resolve-ior ior)]
         :uroughness   [:float ur]
         :vroughness   [:float vr]
@@ -703,7 +703,7 @@
            (number? sigma)]}
     (material-common
      scene id "matte"
-     {:Kd    [:color (if diffuse-hsb (col/hsb->rgb diffuse-hsb) diffuse)]
+     {:Kd    [:color (if diffuse-hsb (col/hsv->rgb diffuse-hsb) diffuse)]
       :sigma [:float sigma]}
      opts))
 
@@ -719,8 +719,8 @@
            (number? sigma)]}
     (material-common
      scene id "mattetranslucent"
-     {:Kr               [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
-      :Kt               [:color (if transmit-hsb (col/hsb->rgb transmit-hsb) transmit)]
+     {:Kr               [:color (if reflect-hsb (col/hsv->rgb reflect-hsb) reflect)]
+      :Kt               [:color (if transmit-hsb (col/hsv->rgb transmit-hsb) transmit)]
       :sigma            [:float sigma]
       :energyconserving [:bool conserve?]}
      opts))
@@ -734,7 +734,7 @@
            (number? film) (kw-or-num? film-ior)]}
     (material-common
      scene id "mirror"
-     {:Kr        [:color (if reflect-hsb (col/hsb->rgb reflect-hsb) reflect)]
+     {:Kr        [:color (if reflect-hsb (col/hsv->rgb reflect-hsb) reflect)]
       :film      [:float film]
       :filmindex [:float (resolve-ior film-ior)]}
      opts))
@@ -754,7 +754,6 @@
   (ns thi.ng.luxor.core
     (:require
      [thi.ng.luxor.config :as conf]
-     [thi.ng.luxor.color :as col]
      [thi.ng.luxor.io :as lio]
      [thi.ng.luxor.presets :as presets]
      [thi.ng.geom.core :as g]
@@ -762,7 +761,8 @@
      [thi.ng.geom.core.vector :as v :refer [vec3 V3X]]
      [thi.ng.geom.core.matrix :as mat :refer [M44]]
      [thi.ng.geom.plane :as pl]
-     [thi.ng.common.math.core :as m]
+     [thi.ng.color.core :as col]
+     [thi.ng.math.core :as m]
      [clojure.java.io :as io])
     (:import
      [java.io ByteArrayOutputStream]))

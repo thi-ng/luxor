@@ -149,7 +149,6 @@ Double click the LXS file to launch in Luxrender.
     (println "done."))
 #+END_SRC
 
-
 * Namespaces
 
 - [[./core.org][thi.ng.luxor.core]]
@@ -185,6 +184,10 @@ https://github.com/thi-ng/luxor
 **** [[https://github.com/thi-ng/geom][thi.ng/geom]]
 #+BEGIN_SRC clojure :noweb-ref dep-geom
 [thi.ng/geom "0.0.815"]
+#+END_SRC
+**** [[https://github.com/thi-ng/color][thi.ng/color]]
+#+BEGIN_SRC clojure :noweb-ref dep-color
+[thi.ng/color "0.2.0"]
 #+END_SRC
 **** [[https://github.com/thi-ng/math][thi.ng/math]]
 #+BEGIN_SRC clojure :noweb-ref dep-math
@@ -257,6 +260,7 @@ then reload the namespace in the REPL via =(require
 
     :dependencies [<<dep-clj>>
                    <<dep-geom>>
+                   <<dep-color>>
                    <<dep-math>>
                    <<dep-depgraph>>]
 

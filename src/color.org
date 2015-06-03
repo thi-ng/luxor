@@ -3,24 +3,7 @@
 * Namespace: thi.ng.luxor.color
 
 #+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/color.clj :noweb yes :mkdirp yes :padline no
-  (ns thi.ng.luxor.color
-    (:import
-     [java.awt Color]))
-
-  (def ^:const inv8bit (/ 1.0 255.0))
-
-  (defn rgb24->rgb
-    [rgb]
-    [(* inv8bit (bit-and (bit-shift-right rgb 16) 0xff))
-     (* inv8bit (bit-and (bit-shift-right rgb 8) 0xff))
-     (* inv8bit (bit-and rgb 0xff))])
-
-  (defn hsb->rgb
-    [[h s b]]
-    (let [rgb (bit-and (Color/HSBtoRGB (float h) (float s) (float b)) 0xffffff)]
-      [(* inv8bit (bit-and (bit-shift-right rgb 16) 0xff))
-       (* inv8bit (bit-and (bit-shift-right rgb 8) 0xff))
-       (* inv8bit (bit-and rgb 0xff))]))
+  (ns thi.ng.luxor.color)
 
   (defn scaled-absorption-at-depth
     [x scale d]
