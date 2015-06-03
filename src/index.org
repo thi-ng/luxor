@@ -168,7 +168,7 @@ Double click the LXS file to launch in Luxrender.
 ** Injected properties
 
 #+BEGIN_SRC clojure :noweb-ref version
-0.3.0
+0.3.1
 #+END_SRC
 
 #+BEGIN_SRC clojure :exports none :noweb-ref project-url
