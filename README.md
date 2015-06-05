@@ -16,6 +16,7 @@ See [index.org](src/index.org) for full project details, examples & implementati
 - [Base scene setup](src/scenes.org)
 - [Torus knot tests](https://github.com/thi-ng/geom/blob/master/geom-types/src/ptf.org#luxor-torus-knot-examples)
 - [Morphogen examples](https://github.com/thi-ng/morphogen/blob/master/src/examples.org)
+- [geom-voxel examples](https://github.com/thi-ng/geom/blob/develop/geom-voxel/src/examples.org#example-sphere-erosion)
 - [Talk slides @ Retune 2014](http://media.thi.ng/2014/talks/we-are-the-incanters/index.html)
 
 ## Projects using luxor
