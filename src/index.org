@@ -191,7 +191,7 @@ https://github.com/thi-ng/luxor
 #+END_SRC
 **** [[https://github.com/thi-ng/math][thi.ng/math]]
 #+BEGIN_SRC clojure :noweb-ref dep-math
-[thi.ng/math "0.1.1"]
+[thi.ng/math "0.1.2"]
 #+END_SRC
 **** [[https://github.com/stuartsierra/dependency][com.stuartsierra/dependency]]
 #+BEGIN_SRC clojure :noweb-ref dep-depgraph
@@ -297,7 +297,7 @@ symbol =version= holding the version string defined above:
 
 | *Version* | *Released* | *Description*                      | *Lein coordinates*       | *Tagged Github URL* |
 |-----------+------------+------------------------------------+--------------------------+---------------------|
-|     0.3.1 | 2015-06-03 | update dependencies, bugfixes      | =[thi.ng/luxor "0.3.1"]= | [[https://github.com/thi-ng/luxor/tree/0.3.1][0.3.1]]               |
+|     0.3.1 | 2015-06-05 | update dependencies, bugfixes      | =[thi.ng/luxor "0.3.1"]= | [[https://github.com/thi-ng/luxor/tree/0.3.1][0.3.1]]               |
 |     0.3.0 | 2015-02-25 | Project restructure, API additions | =[thi.ng/luxor "0.3.0"]= | [[https://github.com/thi-ng/luxor/tree/0.3.0][0.3.0]]               |
 |     0.2.0 | 2014-03-10 | 1st public release                 | =[thi.ng/luxor "0.2.0"]= | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               |
 
