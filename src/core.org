@@ -7,7 +7,7 @@
 #+BEGIN_SRC clojure :noweb-ref helpers
   (defn kw-or-num? [x] (or (keyword? x) (number? x)))
   (defn kw-or-str? [x] (or (keyword? x) (string? x)))
-  (defn color? [x] (and (sequential? x) (= 3 (count x))))
+  (defn color? [x] (satisfies? col/IRGBConvert x))
   (defn optional-bool
     [x default] (cond x true (false? x) false :default default))
 
@@ -577,20 +577,24 @@
 
 #+BEGIN_SRC clojure :noweb-ref volumes
   (defn volume
-    [scene id {:keys [type ior absorb absorb-hsb abs-scale abs-depth]
-               :or {type :clear absorb [1.0 1.0 1.0]
-                    abs-scale 1.0 abs-depth 1.0 ior :air}}]
+    [scene id {:keys [type ior absorb abs-scale abs-depth]
+               :or {type      :clear
+                    absorb    (col/rgba 1.0 1.0 1.0)
+                    abs-scale 1.0
+                    abs-depth 1.0
+                    ior       :air}}]
     {:pre [(kw-or-str? id)
            (conf/volume-types type)
-           (kw-or-num? ior) (optional keyword? presets/ior-presets ior)
-           (color? absorb) (optional color? absorb-hsb)
-           (number? abs-scale) (number? abs-depth)]}
+           (kw-or-num? ior)
+           (optional keyword? presets/ior-presets ior)
+           (color? absorb)
+           (number? abs-scale)
+           (number? abs-depth)]}
     (append
      scene :volumes id
-     {:__type type
-      :fresnel [:float (resolve-ior ior)]
-      :absorption [:log-color [(if absorb-hsb (col/hsv->rgb absorb-hsb) absorb)
-                               abs-scale abs-depth]]}))
+     {:__type     type
+      :fresnel    [:float (resolve-ior ior)]
+      :absorption [:log-color [@(col/as-rgba absorb) abs-scale abs-depth]]}))
 
   (defn volume-integrator
     [scene id]
@@ -657,36 +661,38 @@
 
   (defn material-mix
     ([scene id m1 m2]
-       (material-mix scene id m1 m2 0.5))
+     (material-mix scene id m1 m2 0.5))
     ([scene id m1 m2 blend]
-       {:pre [(kw-or-str? id) (kw-or-str? m1) (kw-or-str? m2)
-              (number? blend)]}
-       (let [m1 (name m1) m2 (name m2)]
-         (append
-          scene :materials id
-          {:type           [:string "mix"]
-           :namedmaterial1 [:string m1]
-           :namedmaterial2 [:string m2]
-           :amount         [:float blend]
-           :__depends      [m1 m2]}))))
+     {:pre [(kw-or-str? id)
+            (kw-or-str? m1)
+            (kw-or-str? m2)
+            (number? blend)]}
+     (let [m1 (name m1) m2 (name m2)]
+       (append
+        scene :materials id
+        {:type           [:string "mix"]
+         :namedmaterial1 [:string m1]
+         :namedmaterial2 [:string m2]
+         :amount         [:float blend]
+         :__depends      [m1 m2]}))))
 
   (defn material-glossy-coating
-    [scene id {:keys [multi-bounce?
-                      specular specular-hsb
-                      ior roughness base]
-               :or {specular [0.8 0.8 0.8]
-                    ior 0.0
-                    roughness 0.075}
-               :as opts}]
-    {:pre [(kw-or-str? id) (kw-or-str? base)
-           (color? specular) (optional color? specular-hsb)
-           (kw-or-num? ior) (or (number? roughness) (sequential? roughness))]}
-    (let [base (name base)
+    [scene id {:keys [multi-bounce? specular ior roughness base]
+               :or   {specular (col/rgba 0.8 0.8 0.8)
+                      ior 0.0
+                      roughness 0.075}
+               :as   opts}]
+    {:pre [(kw-or-str? id)
+           (kw-or-str? base)
+           (color? specular)
+           (kw-or-num? ior)
+           (or (number? roughness) (sequential? roughness))]}
+    (let [base    (name base)
           [ur vr] (if (sequential? roughness) roughness [roughness roughness])]
       (append
        scene :materials id
        {:type         [:string "glossycoating"]
-        :Ks           [:color (if specular-hsb (col/hsv->rgb specular-hsb) specular)]
+        :Ks           [:color @(col/as-rgba specular)]
         :index        [:float (resolve-ior ior)]
         :uroughness   [:float ur]
         :vroughness   [:float vr]
@@ -695,46 +701,51 @@
         :__depends    [base]})))
 
   (defn material-matte
-    [scene id {:keys [diffuse diffuse-hsb sigma]
-               :or {diffuse [1.0 1.0 1.0] sigma 0}
-               :as opts}]
+    [scene id {:keys [diffuse sigma]
+               :or   {diffuse (col/rgba 1.0 1.0 1.0) sigma 0}
+               :as   opts}]
     {:pre [(kw-or-str? id)
-           (color? diffuse) (optional color? diffuse-hsb)
+           (color? diffuse)
            (number? sigma)]}
     (material-common
      scene id "matte"
-     {:Kd    [:color (if diffuse-hsb (col/hsv->rgb diffuse-hsb) diffuse)]
+     {:Kd    [:color @(col/as-rgba diffuse)]
       :sigma [:float sigma]}
      opts))
 
   (defn material-matte-translucent
-    [scene id {:keys [reflect reflect-hsb transmit transmit-hsb
-                      sigma alpha conserve?]
-               :or {reflect [0.3 0.3 0.3] transmit [0.65 0.65 0.65]
-                    sigma 0 alpha 1.0 conserve? true}
-               :as opts}]
+    [scene id {:keys [reflect transmit sigma alpha conserve?]
+               :or   {reflect   (col/rgba 0.3 0.3 0.3)
+                      transmit  (col/rgba 0.65 0.65 0.65)
+                      sigma     0
+                      alpha     1.0
+                      conserve? true}
+               :as   opts}]
     {:pre [(kw-or-str? id)
-           (color? reflect) (optional color? reflect-hsb)
-           (color? transmit) (optional color? transmit-hsb)
+           (color? reflect)
+           (color? transmit)
            (number? sigma)]}
     (material-common
      scene id "mattetranslucent"
-     {:Kr               [:color (if reflect-hsb (col/hsv->rgb reflect-hsb) reflect)]
-      :Kt               [:color (if transmit-hsb (col/hsv->rgb transmit-hsb) transmit)]
+     {:Kr               [:color @(col/as-rgba reflect)]
+      :Kt               [:color @(col/as-rgba transmit)]
       :sigma            [:float sigma]
       :energyconserving [:bool conserve?]}
      opts))
 
   (defn material-mirror
-    [scene id {:keys [reflect reflect-hsb film film-ior]
-               :or {reflect [1 1 1] film 0 film-ior 1.5}
-               :as opts}]
+    [scene id {:keys [reflect film film-ior]
+               :or   {reflect  (col/rgba 1 1 1)
+                      film     0
+                      film-ior 1.5}
+               :as   opts}]
     {:pre [(kw-or-str? id)
-           (color? reflect) (optional color? reflect-hsb)
-           (number? film) (kw-or-num? film-ior)]}
+           (color? reflect)
+           (number? film)
+           (kw-or-num? film-ior)]}
     (material-common
      scene id "mirror"
-     {:Kr        [:color (if reflect-hsb (col/hsv->rgb reflect-hsb) reflect)]
+     {:Kr        [:color @(col/as-rgba reflect)]
       :film      [:float film]
       :filmindex [:float (resolve-ior film-ior)]}
      opts))

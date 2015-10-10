@@ -248,7 +248,7 @@
           stream-fn (get-in scene [:__config :mesh-streamer])]
       (when __mesh
         (with-open [out (stream-fn id path)]
-          (export-fn out (g/tessellate __mesh))))
+          (export-fn (mio/wrapped-output-stream out) (g/tessellate __mesh))))
       (luxentity scene "Shape" type (assoc opts :filename [:string path]))))
 
   (defmethod emit :plymesh

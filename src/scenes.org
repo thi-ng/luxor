@@ -35,44 +35,70 @@ manually adjusted during rendering using the Luxrender UI:
 #+BEGIN_SRC clojure :noweb-ref lxs
   (defn base-scene
     [{:keys [eye target up fov width height bg-width]
-      :or {eye [0 1.25 0]
-           target [0 0.4 -2]
-           up V3Y
-           fov 70
+      :or {eye      [0 1.25 0]
+           target   [0 0.4 -2]
+           up       V3Y
+           fov      70
            bg-width 6.0
-           width 1280
-           height 720}}]
+           width    1280
+           height   720}}]
     (-> (lux/lux-scene)
         (lux/configure-meshes-as-byte-arrays)
         (lux/renderer-sampler)
         (lux/sampler-ld {})
         (lux/integrator-bidir {})
         (lux/camera
-         {:eye eye :target target :up up :fov fov
-          :focal-dist (* (g/dist (vec3 eye) target) 0.8)
+         {:eye         eye
+          :target      target
+          :up          up
+          :fov         fov
+          :focal-dist  (* (g/dist (vec3 eye) target) 0.8)
           :lens-radius 0.03})
         (lux/film
-         {:width width :height height
-          :response :agfacolor-optima2-200cd
-          :display-interval 10 :halt-spp 1000})
+         {:width            width
+          :height           height
+          :response         :agfacolor-optima2-200cd
+          :display-interval 10
+          :halt-spp         1000})
         (lux/tonemap-linear
-         {:iso 100 :exposure 0.95 :f-stop 2.8 :gamma 2.2})
+         {:iso      100
+          :exposure 0.95
+          :f-stop   2.8
+          :gamma    2.2})
         (lux/material-matte
-         :bg-matte {:diffuse [0.5 0.5 0.5]})
+         :bg-matte {:diffuse (col/rgba 0.5 0.5 0.5)})
         (lux/material-matte
-         :basic {:diffuse [0.64 0.622 0.615]})
+         :basic {:diffuse (col/rgba 0.64 0.622 0.615)})
         (lux/material-glossy-coating
-         :gloss {:ior :plastic :specular [1 1 1] :base :basic})
-        (lux/light-groups {:top {:gain 0.15} :fill {:gain 0.1}})
+         :gloss
+         {:ior      :plastic
+          :specular (col/rgba 1 1 1)
+          :base     :basic})
+        (lux/light-groups
+         {:top  {:gain 0.15}
+          :fill {:gain 0.1}})
         (lux/area-light
-         :top   {:n [0 -1 0] :size [6 2] :group :top :tx {:translate [0 2 -2] :rx 30}})
+         :top
+         {:n     [0 -1 0]
+          :size  [6 2]
+          :group :top
+          :tx    {:translate [0 2 -2] :rx 30}})
         (lux/area-light
-         :left  {:n [1 0 0] :size 0.5 :group :fill :tx {:translate [-1 1.25 0] :ry 45 :rz -20}})
+         :left
+         {:n     [1 0 0]
+          :size  0.5
+          :group :fill
+          :tx    {:translate [-1 1.25 0] :ry 45 :rz -20}})
         (lux/area-light
-         :right {:n [-1 0 0] :size 0.5 :group :fill :tx {:translate [1 1.25 0] :ry -45 :rz 20}})
+         :right
+         {:n     [-1 0 0]
+          :size  0.5
+          :group :fill
+          :tx    {:translate [1 1.25 0] :ry -45 :rz 20}})
         (lux/ply-mesh
-         :bg    {:material :bg-matte
-                 :mesh (prims/infinity-curve bg-width 2.0 4.0 0.5 0.75 0.05 4)})))
+         :bg
+         {:material :bg-matte
+          :mesh     (prims/infinity-curve bg-width 2.0 4.0 0.5 0.75 0.05 4)})))
 #+END_SRC
 
 ** Render scene generator
@@ -151,7 +177,8 @@ be written in the same directory, called =base.lxs=.
      [thi.ng.geom.aabb :as a]
      [thi.ng.luxor.core :as lux]
      [thi.ng.luxor.io :as lio]
-     [thi.ng.luxor.primitives :as prims]))
+     [thi.ng.luxor.primitives :as prims]
+     [thi.ng.color.core :as col]))
 
   <<lxs>>
 
