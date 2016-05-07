@@ -133,7 +133,7 @@ automatically repositions it. The following options are supported:
                        (g/rotate-x rx)
                        (g/rotate-y ry)
                        (g/rotate-z rz))
-          mesh     (first (tu/fit-all-into-bounds (g/center bounds) [mesh]))]
+          mesh     (first (gu/fit-all-into-bounds (g/center bounds) [mesh]))]
       (add-mesh scene mesh {:id id :material material :tx {:matrix mat}})))
 #+END_SRC
 
@@ -171,9 +171,9 @@ be written in the same directory, called =base.lxs=.
   (ns thi.ng.luxor.scenes
     (:require
      [thi.ng.geom.core :as g]
-     [thi.ng.geom.core.vector :refer [vec3 V3Y]]
-     [thi.ng.geom.core.matrix :refer [M44]]
-     [thi.ng.geom.types.utils :as tu]
+     [thi.ng.geom.vector :refer [vec3 V3Y]]
+     [thi.ng.geom.matrix :refer [M44]]
+     [thi.ng.geom.utils :as gu]
      [thi.ng.geom.aabb :as a]
      [thi.ng.luxor.core :as lux]
      [thi.ng.luxor.io :as lio]

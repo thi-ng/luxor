@@ -437,7 +437,7 @@
                 :__lookat {:eye eye :target target
                            :up (if up
                                  (vec3 up)
-                                 (gu/ortho-normal (g/- eye target) V3X))}}
+                                 (gu/ortho-normal (m/- eye target) V3X))}}
           opts (cond
                 focal-dist  (assoc opts
                               :focaldistance [:float focal-dist]
@@ -768,9 +768,9 @@
      [thi.ng.luxor.io :as lio]
      [thi.ng.luxor.presets :as presets]
      [thi.ng.geom.core :as g]
-     [thi.ng.geom.core.utils :as gu]
-     [thi.ng.geom.core.vector :as v :refer [vec3 V3X]]
-     [thi.ng.geom.core.matrix :as mat :refer [M44]]
+     [thi.ng.geom.utils :as gu]
+     [thi.ng.geom.vector :as v :refer [vec3 V3X]]
+     [thi.ng.geom.matrix :as mat :refer [M44]]
      [thi.ng.geom.plane :as pl]
      [thi.ng.color.core :as col]
      [thi.ng.math.core :as m]

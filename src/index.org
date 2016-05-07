@@ -131,7 +131,7 @@ Double click the LXS file to launch in Luxrender.
                               (g/as-polygon)
                               (g/extrude-shell
                                (let [d (-> (g/centroid %)
-                                           (g/mag)
+                                           (m/mag)
                                            (m/map-interval [0 3.75] [0 m/HALF_PI])
                                            (Math/cos))]
                                  {:depth (* 2 d) :wall (- 0.15 (* d 0.125))}))))
@@ -169,7 +169,7 @@ Double click the LXS file to launch in Luxrender.
 ** Injected properties
 
 #+BEGIN_SRC clojure :noweb-ref version
-0.3.2
+0.3.2-SNAPSHOT
 #+END_SRC
 
 #+BEGIN_SRC clojure :exports none :noweb-ref project-url
@@ -180,34 +180,34 @@ https://github.com/thi-ng/luxor
 *** Runtime
 **** [[https://github.com/clojure/clojure][Clojure]]
 #+BEGIN_SRC clojure :noweb-ref dep-clj
-[org.clojure/clojure "1.7.0"]
+[org.clojure/clojure "1.8.0"]
 #+END_SRC
 **** [[https://github.com/thi-ng/geom][thi.ng/geom]]
 #+BEGIN_SRC clojure :noweb-ref dep-geom
-[thi.ng/geom "0.0.899"]
+[thi.ng/geom "0.0.1158-SNAPSHOT"]
 #+END_SRC
 **** [[https://github.com/thi-ng/color][thi.ng/color]]
 #+BEGIN_SRC clojure :noweb-ref dep-color
-[thi.ng/color "1.0.0"]
+[thi.ng/color "1.2.0"]
 #+END_SRC
 **** [[https://github.com/thi-ng/math][thi.ng/math]]
 #+BEGIN_SRC clojure :noweb-ref dep-math
-[thi.ng/math "0.1.4"]
+[thi.ng/math "0.2.1"]
 #+END_SRC
 **** [[https://github.com/stuartsierra/dependency][com.stuartsierra/dependency]]
 #+BEGIN_SRC clojure :noweb-ref dep-depgraph
-[com.stuartsierra/dependency "0.1.1"]
+[com.stuartsierra/dependency "0.2.0"]
 #+END_SRC
 *** Development
 **** [[https://github.com/hugoduncan/criterium][Criterium]]
 #+BEGIN_SRC clojure :noweb-ref dep-criterium
-[criterium "0.4.3"]
+[criterium "0.4.4"]
 #+END_SRC
 
 ** Leiningen coordinates
 
 #+BEGIN_SRC clojure :noweb yes :noweb-ref lein-coords
-  [thi.ng/luxor "0.3.1"]
+  [thi.ng/luxor "0.3.2-SNAPSHOT"]
 #+END_SRC
 
 ** Building this project
@@ -296,11 +296,12 @@ symbol =version= holding the version string defined above:
 
 ** Release history
 
-| *Version* | *Released* | *Description*                      | *Lein coordinates*       | *Tagged Github URL* |
-|-----------+------------+------------------------------------+--------------------------+---------------------|
-|     0.3.1 | 2015-06-05 | update dependencies, bugfixes      | =[thi.ng/luxor "0.3.1"]= | [[https://github.com/thi-ng/luxor/tree/0.3.1][0.3.1]]               |
-|     0.3.0 | 2015-02-25 | Project restructure, API additions | =[thi.ng/luxor "0.3.0"]= | [[https://github.com/thi-ng/luxor/tree/0.3.0][0.3.0]]               |
-|     0.2.0 | 2014-03-10 | 1st public release                 | =[thi.ng/luxor "0.2.0"]= | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               |
+| *Version* | *Released* | *Description*                             | *Lein coordinates*                | *Tagged Github URL* |
+|-----------+------------+-------------------------------------------+-----------------------------------+---------------------|
+|     0.3.2 |        n/a | update dependencies, make geom compatible | =[thi.ng/luxor "0.3.2-SNAPSHOT"]= |                     |
+|     0.3.1 | 2015-06-05 | update dependencies, bugfixes             | =[thi.ng/luxor "0.3.1"]=          | [[https://github.com/thi-ng/luxor/tree/0.3.1][0.3.1]]               |
+|     0.3.0 | 2015-02-25 | Project restructure, API additions        | =[thi.ng/luxor "0.3.0"]=          | [[https://github.com/thi-ng/luxor/tree/0.3.0][0.3.0]]               |
+|     0.2.0 | 2014-03-10 | 1st public release                        | =[thi.ng/luxor "0.2.0"]=          | [[https://github.com/thi-ng/luxor/tree/0.2.0][0.2.0]]               |
 
 ** Contributors
 

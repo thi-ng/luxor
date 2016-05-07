@@ -228,12 +228,12 @@
      (luxvalues scene opts)
      "\n"))
 
-  (defmethod emit :trimesh
+  (defmethod emit :trimesh ;; TODO add attrib support
     [_ scene id {:keys [__mesh]}]
-    (let [verts (vec (g/vertices __mesh))
-          vidx (zipmap verts (range))
-          indices (->> (g/faces __mesh)
-                       (mapcat gu/tessellate-with-first)
+    (let [verts   (vec (g/vertices __mesh))
+          vidx    (zipmap verts (range))
+          indices (->> (g/faces __mesh true)
+                       (mapcat #(gu/tessellate-with-first (first %)))
                        (mapcat (fn [[a b c]] [(vidx a) (vidx b) (vidx c)])))]
       (luxentity
        scene "Shape" "trianglemesh"
@@ -277,7 +277,7 @@
      [thi.ng.luxor.config :as conf]
      [thi.ng.luxor.color :as lcol]
      [thi.ng.geom.core :as g]
-     [thi.ng.geom.core.utils :as gu]
+     [thi.ng.geom.utils :as gu]
      [thi.ng.geom.mesh.io :as mio]
      [com.stuartsierra.dependency :as dep]
      [clojure.string :as str]

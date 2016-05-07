@@ -56,21 +56,21 @@ perception.
              d (- d)
              d13 (* d d1)
              d23 (* d d2)
-             nt (g/normalize (vec3 0 (- h2) (- d23 d13)))
+             nt (m/normalize (vec3 0 (- h2) (- d23 d13)))
              n0 (vec3 0 (- t) 0)
              n3 (vec3 0 0 (- t))
-             n1 (-> (vec3 0 -1 0) (g/mix nt) (g/normalize t))
-             n2 (-> (vec3 0 0 -1) (g/mix nt) (g/normalize t))
-             pa (vec3 w1 0 0)   pa' (g/+ pa n0)
-             pb (vec3 w2 0 0)   pb' (g/+ pb n0)
-             pc (vec3 w2 0 d13) pc' (g/+ pc n0)
-             pd (vec3 w1 0 d13) pd' (g/+ pd n0)
-             pe (vec3 w1 0 d23) pe' (g/+ pe n1)
-             pf (vec3 w2 0 d23) pf' (g/+ pf n1)
-             pg (vec3 w1 h2 d)  pg' (g/+ pg n2)
-             ph (vec3 w2 h2 d)  ph' (g/+ ph n2)
-             pi (vec3 w1 h d)   pi' (g/+ pi n3)
-             pj (vec3 w2 h d)   pj' (g/+ pj n3)]
+             n1 (-> (vec3 0 -1 0) (m/mix nt) (m/normalize t))
+             n2 (-> (vec3 0 0 -1) (m/mix nt) (m/normalize t))
+             pa (vec3 w1 0 0)   pa' (m/+ pa n0)
+             pb (vec3 w2 0 0)   pb' (m/+ pb n0)
+             pc (vec3 w2 0 d13) pc' (m/+ pc n0)
+             pd (vec3 w1 0 d13) pd' (m/+ pd n0)
+             pe (vec3 w1 0 d23) pe' (m/+ pe n1)
+             pf (vec3 w2 0 d23) pf' (m/+ pf n1)
+             pg (vec3 w1 h2 d)  pg' (m/+ pg n2)
+             ph (vec3 w2 h2 d)  ph' (m/+ ph n2)
+             pi (vec3 w1 h d)   pi' (m/+ pi n3)
+             pj (vec3 w2 h d)   pj' (m/+ pj n3)]
          (->> [[pa pb pc pd]     ;; top surfaces
                [pd pc pf pe]
                [pe pf ph pg]
@@ -91,6 +91,7 @@ perception.
                [pg pi pi' pg']
                [pj ph ph' pj']
                [pi pj pj' pi']]
+              (map vector)
               (g/into (gm/gmesh))
               (iterate sd/catmull-clark)
               (take (inc smooth))
@@ -102,8 +103,9 @@ perception.
 #+BEGIN_SRC clojure :tangle ../babel/src/thi/ng/luxor/primitives.clj :noweb yes :mkdirp yes :padline no
   (ns thi.ng.luxor.primitives
     (:require
+     [thi.ng.math.core :as m]
      [thi.ng.geom.core :as g]
-     [thi.ng.geom.core.vector :as v :refer [vec2 vec3 V3Y V3Z]]
+     [thi.ng.geom.vector :as v :refer [vec2 vec3 V3Y V3Z]]
      [thi.ng.geom.gmesh :as gm]
      [thi.ng.geom.mesh.subdivision :as sd]))
 
