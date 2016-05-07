@@ -2,9 +2,10 @@
 
 ![Luxor test scene](assets/test-scene.jpg)
 
-Luxor is a Clojure based LXS scene compiler, generator & mesh
-exporter for [Luxrender](http://luxrender.net) (v1.3+), an
-open source, physically based and unbiased rendering engine.
+Luxor is a Clojure based LXS scene compiler, generator & mesh exporter
+for [Luxrender](http://luxrender.net) (v1.3+), an open source,
+physically based and unbiased rendering engine, with support for
+OpenCL and network rendering.
 
 ## Description & usage
 
@@ -29,7 +30,7 @@ See [index.org](src/index.org) for full project details, examples & implementati
 ## Leiningen coordinates
 
 ```clj
-[thi.ng/luxor "0.3.1"]
+[thi.ng/luxor "0.3.2-SNAPSHOT"]
 ```
 
 ## License
