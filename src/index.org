@@ -265,7 +265,7 @@ then reload the namespace in the REPL via =(require
                    <<dep-depgraph>>]
 
     :profiles {:dev {:dependencies [<<dep-criterium>>]
-                     :aliases {"cleantest" ["do" "clean" "test"]}}}
+                     :aliases {"cleantest" ["do" "clean" ["test"]]}}}
 
     :pom-addition [:developers [:developer
                                 [:name "Karsten Schmidt"]
