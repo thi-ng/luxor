@@ -58,7 +58,7 @@ Double click the LXS file to launch in Luxrender.
    '[thi.ng.math.core :as m])
 
   ;; see LXS syntax ref for description of these entities & options
-  ;; http://www.luxcorerender.org/wiki/Scene_file_format_dev
+  ;; https://web.archive.org/web/20160422052811/http://www.luxrender.net/wiki/Scene_file_format_dev
 
   (do ;; wrap in `do` form to avoid full scene dump in repl (optional/cosmetic)
     (->
