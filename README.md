@@ -3,7 +3,7 @@
 ![Luxor test scene](assets/test-scene.jpg)
 
 Luxor is a Clojure based LXS scene compiler, generator & mesh
-exporter for [Luxrender](http://luxrender.net) (v1.3+), an
+exporter for [Luxrender](http://luxcorerender.org) (v1.3+), an
 open source, physically based and unbiased rendering engine.
 
 ## Description & usage
@@ -12,16 +12,16 @@ See [index.org](src/index.org) for full project details, examples & implementati
 
 ## Further examples
 
-- [SAC workshop 2014](https://github.com/learn-postspectacular/sac-workshop-2014)
-- [Base scene setup](src/scenes.org)
-- [Torus knot tests](https://github.com/thi-ng/geom/blob/master/geom-types/src/ptf.org#luxor-torus-knot-examples)
-- [Morphogen examples](https://github.com/thi-ng/morphogen/blob/master/src/examples.org)
-- [geom-voxel examples](https://github.com/thi-ng/geom/blob/develop/geom-voxel/src/examples.org#example-sphere-erosion)
+-   [SAC workshop 2014](https://github.com/learn-postspectacular/sac-workshop-2014)
+-   [Base scene setup](src/scenes.org)
+-   [Torus knot tests](https://github.com/thi-ng/geom/blob/master/geom-types/src/ptf.org#luxor-torus-knot-examples)
+-   [Morphogen examples](https://github.com/thi-ng/morphogen/blob/master/src/examples.org)
+-   [geom-voxel examples](https://github.com/thi-ng/geom/blob/develop/geom-voxel/src/examples.org#example-sphere-erosion)
 
 ## Projects using luxor
 
-- [Morphogen](http://thi.ng/morphogen)
-- [Co(de)Factory](https://github.com/postspectacular/devart-codefactory)
+-   [Morphogen](http://thi.ng/morphogen)
+-   [Co(de)Factory](https://github.com/postspectacular/devart-codefactory)
 
 (Please send PR if you want your project included here)
 

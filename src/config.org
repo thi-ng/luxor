@@ -6,7 +6,7 @@
   (ns thi.ng.luxor.config)
 
   ;; References:
-  ;; http://www.luxrender.net/wiki/Scene_file_format_dev
+  ;; https://web.archive.org/web/20160422052811/http://www.luxrender.net/wiki/Scene_file_format_dev
 
   (def mesh-types            {:inline :trimesh :ply :plymesh :stl :stlmesh})
   (def volume-types          #{:clear :homogenous :heterogenous})

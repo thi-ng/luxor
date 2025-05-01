@@ -11,7 +11,7 @@ This project is part of the [[https://github.com/thi-ng/][thi.ng]] collection of
 Clojurescript libraries.
 
 Luxor is a Clojure based LXS scene graph compiler, generator & mesh
-exporter for [[http://luxrender.net][Luxrender]] (v1.3+), an open source, physically based and
+exporter for [[http://luxcorerender.org][Luxrender]] (v1.3+), an open source, physically based and
 unbiased rendering engine.
 
 ** Status
@@ -21,7 +21,7 @@ functionality is implemented thus far, but more feature support is
 planned. All Lux entity generators use the same default values as
 specified in the official LXS syntax reference:
 
-http://www.luxrender.net/wiki/Scene_file_format_dev
+https://web.archive.org/web/20160422052811/http://www.luxrender.net/wiki/Scene_file_format_dev
 
 Since Luxrender has *a lot* of options for its various scene
 components, it is highly recommended to study the above reference in
@@ -58,7 +58,7 @@ Double click the LXS file to launch in Luxrender.
    '[thi.ng.math.core :as m])
 
   ;; see LXS syntax ref for description of these entities & options
-  ;; http://www.luxrender.net/wiki/Scene_file_format_dev
+  ;; http://www.luxcorerender.org/wiki/Scene_file_format_dev
 
   (do ;; wrap in `do` form to avoid full scene dump in repl (optional/cosmetic)
     (->
